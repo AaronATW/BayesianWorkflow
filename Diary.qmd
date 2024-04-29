@@ -1,0 +1,230 @@
+---
+title: "Bayesian Workflow Diary"
+date: 2023-04-22
+author: Anlin Sun
+format:
+  html:
+    toc: true
+    code-tools: true
+    code-line-numbers: true
+    number-sections: true
+    mainfont: Calibri, serif
+    page-layout: article
+---
+
+```{r}
+#| message: false
+#| warning: false
+
+```
+
+## Bayesian Workflow
+
+### Set up
+
+AI tools are used to give hints on plots and codes.
+
+```{r}
+#| label: imports
+#| message: false
+#| warning: false
+library(bayesplot)
+library(cmdstanr)
+library(dplyr)
+library(ggplot2)
+library(ggdist) # for stat_dotsinterval
+library(posterior)
+library(brms)
+library(rstan)
+library(plotly)
+library(patchwork)
+library(knitr)
+library(kableExtra)
+library(metadat)
+library(metafor)
+# Globally specfiy cmdstan backend for brms
+options(brms.backend="cmdstanr")
+# Tell brms to cache results if possible
+options(brms.file_refit="on_change")
+
+# Set more readable themes with bigger font for plotting packages
+ggplot2::theme_set(theme_minimal(base_size = 14))
+bayesplot::bayesplot_theme_set(theme_minimal(base_size = 14))
+```
+
+### Loading Data and Preprocessing
+
+Use this section of the diary for loading your dataset of choice and performing any necessary preprocessing. This could include cleaning the data, transforming variables, or creating new variables. Remember that you should be able to re-run or modify this code if needed during the interactive presentations.
+
+```{r}
+### copy data into 'dat' and examine data
+dat <- dat.ishak2007
+head(dat, 10)
+
+### load metafor package
+
+
+### create long format dataset
+dat <- reshape(dat, direction="long", idvar="study", v.names=c("yi","vi"),
+               varying=list(c(2,4,6,8), c(3,5,7,9)))
+dat <- dat[order(study, time),]
+
+### remove missing measurement occasions from dat.long
+dat <- dat[!is.na(yi),]
+rownames(dat) <- NULL
+head(dat, 10)
+```
+
+### Week 1: Exploratory Data Analysis and Choosing a Research Question
+
+#### Goal
+
+After this week, you should have:
+
+-   Setting up your project, for example, using the provided templates
+-   Formulating a research question & finding a dataset
+-   Visualising and getting familiar with characteristics of your data (e.g., range, data types)
+-   Adding your first notes and visualisations to the workflow diary
+-   Picking an initial model & documenting your reasoning and the strategies you used to choose it
+-   Obtaining posterior samples using your initial model with default priors
+-   Documenting what you observe and any issues you encounter in the workflow diary
+
+#### Research Question
+
+-   Does the deep-brain stimulation has significant positive effects on patients with Parkinson's disease?
+-   If so, what is the trend of their UPDRS score over the time?
+-   Do mean disease duration and mean baseline UPDRS scores have effects on this trend? What effects?
+
+#### Data Visualization
+
+```{r}
+#| warning: false
+### plot data
+library(ggplot2)
+
+ggplot(dat, aes(x = time, y = yi, color = factor(study), group = study)) +
+  geom_line() +  
+  geom_point() +  
+  labs(x = "Time Point", y = "Mean Difference") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  guides(color = FALSE)
+```
+
+Intuitively, this treatment roughly has a positive effect over the time, but not too obvious from the visualization.
+
+#### Initial model
+
+To be simple at the start, I picked the Bayesian linear regression model at the first attempt, because it's concise enough and considers all of the factors from the dataset. I can adjust my model based on the performance of this linear model.
+
+-   **Likelihood**: $$\Delta y_{it}=\beta_0 + \beta_1*time + \beta_2*mdur_i+ \beta_3*mbase_i + b_i + \epsilon_{it}$$ $$b_i\sim\bf{N}(0,\sigma_b^2),\quad\epsilon\sim\bf{N}(0,\sigma^2)$$
+
+-   **Prior**: $$\beta_\_\sim\bf{N}(0,5),\quad\sigma_\_\sim\bf{C}(0,2)$$
+
+#### Model Definition and Fitting
+
+```{r}
+#| message: false
+#| warning: false
+#| results: 'hide'
+model_formula <- bf(yi ~ time + mdur + mbase + (1 | study))
+
+priors <- c(
+  prior(normal(0, 5), class = "b"),
+  prior(cauchy(0, 2), class = "sd")
+)
+
+fit <- brm(
+  formula = model_formula,
+  data = dat,
+  family = gaussian(),
+  prior = priors,
+  chains = 4,
+  iter = 2000,
+  control = list(adapt_delta = 0.95)
+)
+```
+```{r model-summary, echo=FALSE}
+summary(fit)
+```
+
+#### Observations and Problems
+
+-   Rhat of all the parameters is 1.00, and it seems that the Markov chains converged well enough.
+
+-   From the point estimate of time coefficient, it seems that this stimulation even has a negative impact on patients' performance. Is it reliable? The CI of the time coefficient is \[-1.18,0.20\], so it's hard to say and we need more evaluation methods to check the performance of this model but I'll pause here because it's just an attempt.
+
+-   mdur and mbase both have negative impact on patients' performance from this model's result.
+
+-   The linear Bayesian model and prior choices seem too casual, and I plan to discover some models which are more compatible with this problem.
+
+### Week 2: Prior Choice
+
+#### Goal
+
+After this week, you should have:
+
+-   Proposed priors for each parameter in your model, with justification
+-   Performed a prior predictive check to ensure that your priors are reasonable
+
+#### Code and Results
+
+```{r}
+# Your code here
+```
+
+### Week 3: Model Fitting and Checking
+
+#### Goal
+
+After this week, you should have:
+
+-   Fitted your model with chosen priors to your data
+-   Performed diagnostic checks for quality/stability of fitting
+-   Performed prior sensitivity assessment
+-   Performed predictive performance assessment
+
+#### Code and Results
+
+```{r}
+# Your code here
+```
+
+### Week 4: Extending Models and Model Selection
+
+#### Goal
+
+After this week, you should have:
+
+-   Decided on whether a model expansion or selection approach is relevant for your research question, with justification
+-   Proposed a second model (or an expansion to the first), building on the issues/diagnostics/concepts from previous weeks
+
+#### Code and Results
+
+```{r}
+# Your code here
+```
+
+### Week 5: Interpreting and Presenting Model Results
+
+#### Goal
+
+After this week, you should have:
+
+-   Prepared a concise summary of your results and how they answer your research question
+-   Prepared a visualisation of your results that is suitable for presentation to a non-technical audience
+
+#### Code and Results
+
+```{r}
+# Your code here
+```
+
+### Week 6: Final Notebook
+
+#### Goal
+
+After this week, you should have:
+
+-   Prepared a separate notebook summarising your analysis and results in the form of a case study
+    -   Be sure to use the case studies provided in this course to guide you
