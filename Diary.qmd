@@ -117,7 +117,7 @@ Intuitively, this treatment roughly has a positive effect over the time, but not
 
 To be simple at the start, I picked the Bayesian linear regression model at the first attempt, because it's concise enough and considers all of the factors from the dataset. I can adjust my model based on the performance of this linear model.
 
--   **Likelihood**: $$\Delta y_{it}=\beta_0 + \beta_1*time + \beta_2*mdur_i+ \beta_3*mbase_i + b_i + \epsilon_{it}$$ $$b_i\sim\bf{N}(0,\sigma_b^2),\quad\epsilon\sim\bf{N}(0,\sigma^2)$$
+-   **Model**: $$\Delta y_{it}=\beta_0 + \beta_1*time + \beta_2*mdur_i+ \beta_3*mbase_i + b_i + \epsilon_{it}$$ $$b_i\sim\bf{N}(0,\sigma_b^2),\quad\epsilon\sim\bf{N}(0,\sigma^2)$$
 
 -   **Prior**: $$\beta_\_\sim\bf{N}(0,5),\quad\sigma_\_\sim\bf{C}(0,2)$$
 
@@ -127,6 +127,7 @@ To be simple at the start, I picked the Bayesian linear regression model at the 
 #| message: false
 #| warning: false
 #| results: 'hide'
+#| eval: false
 model_formula <- bf(yi ~ time + mdur + mbase + (1 | study))
 
 priors <- c(
@@ -144,7 +145,8 @@ fit <- brm(
   control = list(adapt_delta = 0.95)
 )
 ```
-```{r model-summary, echo=FALSE}
+
+```{r model-summary, echo=FALSE, eval=FALSE}
 summary(fit)
 ```
 
@@ -152,9 +154,9 @@ summary(fit)
 
 -   Rhat of all the parameters is 1.00, and it seems that the Markov chains converged well enough.
 
--   From the point estimate of time coefficient, it seems that this stimulation even has a negative impact on patients' performance. Is it reliable? The CI of the time coefficient is \[-1.18,0.20\], so it's hard to say and we need more evaluation methods to check the performance of this model but I'll pause here because it's just an attempt.
+-   From the point estimate of time coefficient, it seems that this stimulation even has a slightly positive impact on patients' performance. Is it reliable? The CI of the time coefficient is \[-1.18,0.20\], so it's hard to say and we need more evaluation methods to check the performance of this model but I'll pause here because it's just an attempt.
 
--   mdur and mbase both have negative impact on patients' performance from this model's result.
+-   mdur and mbase both have positive impacts on patients' performance improvement from this model's result.
 
 -   The linear Bayesian model and prior choices seem too casual, and I plan to discover some models which are more compatible with this problem.
 
@@ -167,10 +169,55 @@ After this week, you should have:
 -   Proposed priors for each parameter in your model, with justification
 -   Performed a prior predictive check to ensure that your priors are reasonable
 
-#### Code and Results
+#### Proposed priors
+
+-   A correct prior choice should not be influenced by our dataset, so I will choose the priors based on common senses and some materials online.
+
+-   It's shown from the Internet that Deep-brain stimulation is a widely used treatment on Parkinson patients. Thus, we tend to believe that it has a positive effect on patients over the time and we prefer the mean of prior distribution of $\beta_1$ to be negative (when $\Delta y$ decreases, the performance is better than the baseline). I chose $\mathbf{N}(-1.0, 0.5^2)$ as the prior, distributing some possibilities that it doesn't have significant effect or even negative effects.
+
+-   Higher disease duration and higher baseline UPDRS scores imply that the diseases are more severe, and it tend to be easier to get a higher improvement from the baseline. However, there are also some cases that the diseases are too severe to achieve an improvement, so for $\beta_2$ and $\beta_3$ I chose $\mathbf{N}(-0.5, 0.5^2)$ as priors.
+
+-   For intercept $\beta_0$, I actually have no ideas what it would be like. So I would choose $\mathbf{N}(0, 10^2)$ as the prior.
+
+-   Priors of the error term still keep this form: $\quad\sigma\sim\mathbf{C}(0,2)$
+
+#### New Priors in brms and Prior Predictive Check
 
 ```{r}
-# Your code here
+#| message: false
+#| warning: false
+#| results: 'hide'
+model_formula <- bf(yi ~ time + mdur + mbase + (1 | study))
+
+priors <- c(
+  prior(normal(-1.0, 0.5), class = "b", coef = "time"),
+  prior(normal(-0.5, 0.5), class = "b", coef = "mdur"),
+  prior(normal(-0.5, 0.5), class = "b", coef = "mbase"),
+  prior(normal(0, 10), class = "Intercept"),
+  prior(cauchy(0, 2), class = "sd")
+)
+
+fit <- brm(
+  formula = model_formula,
+  data = dat,
+  family = gaussian(),
+  prior = priors,
+  sample_prior = "only",
+  chains = 4,
+  iter = 2000,
+  control = list(adapt_delta = 0.95)
+)
+```
+
+```{r echo=FALSE}
+summary(fit)
+prior_samples <- posterior_samples(fit)
+hist(prior_samples$b_time, main = "time", xlab = "time", breaks = 30)
+hist(prior_samples$b_mdur, main = "mdur", xlab = "mdur", breaks = 30)
+hist(prior_samples$b_mbase, main = "mbase", xlab = "mbase", breaks = 30)
+hist(prior_samples$b_Intercept, main = "b_intercept", xlab = "b_intercept", breaks = 30)
+hist(prior_samples$Intercept, main = "intercept", xlab = "intercept", breaks = 30)
+hist(prior_samples$sd, main = "sd", xlab = "sd", breaks = 100)
 ```
 
 ### Week 3: Model Fitting and Checking

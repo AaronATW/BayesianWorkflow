@@ -264,7 +264,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h4 data-number="1.3.4" class="anchored" data-anchor-id="initial-model"><span class="header-section-number">1.3.4</span> Initial model</h4>
 <p>To be simple at the start, I picked the Bayesian linear regression model at the first attempt, because it’s concise enough and considers all of the factors from the dataset. I can adjust my model based on the performance of this linear model.</p>
 <ul>
-<li><p><strong>Likelihood</strong>: <span class="math display">\[\Delta y_{it}=\beta_0 + \beta_1*time + \beta_2*mdur_i+ \beta_3*mbase_i + b_i + \epsilon_{it}\]</span> <span class="math display">\[b_i\sim\bf{N}(0,\sigma_b^2),\quad\epsilon\sim\bf{N}(0,\sigma^2)\]</span></p></li>
+<li><p><strong>Model</strong>: <span class="math display">\[\Delta y_{it}=\beta_0 + \beta_1*time + \beta_2*mdur_i+ \beta_3*mbase_i + b_i + \epsilon_{it}\]</span> <span class="math display">\[b_i\sim\bf{N}(0,\sigma_b^2),\quad\epsilon\sim\bf{N}(0,\sigma^2)\]</span></p></li>
 <li><p><strong>Prior</strong>: <span class="math display">\[\beta_\_\sim\bf{N}(0,5),\quad\sigma_\_\sim\bf{C}(0,2)\]</span></p></li>
 </ul>
 </section>
@@ -288,43 +288,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb7-15"><a href="#cb7-15"></a>  <span class="at">control =</span> <span class="fu">list</span>(<span class="at">adapt_delta =</span> <span class="fl">0.95</span>)</span>
 <span id="cb7-16"><a href="#cb7-16"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell">
-<div class="cell-output cell-output-stdout">
-<pre><code> Family: gaussian 
-  Links: mu = identity; sigma = identity 
-Formula: yi ~ time + mdur + mbase + (1 | study) 
-   Data: dat (Number of observations: 82) 
-  Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1;
-         total post-warmup draws = 4000
-
-Multilevel Hyperparameters:
-~study (Number of levels: 46) 
-              Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-sd(Intercept)     4.53      0.64     3.44     5.95 1.00      991     1520
-
-Regression Coefficients:
-          Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-Intercept    19.24      7.36     4.24    33.53 1.00     1151     1641
-time         -0.49      0.35    -1.19     0.21 1.00     3177     2781
-mdur         -1.22      0.41    -2.02    -0.39 1.00      919     1354
-mbase        -0.54      0.10    -0.74    -0.34 1.00     1315     1818
-
-Further Distributional Parameters:
-      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
-sigma     2.62      0.33     2.07     3.36 1.00     1220     2231
-
-Draws were sampled using sample(hmc). For each parameter, Bulk_ESS
-and Tail_ESS are effective sample size measures, and Rhat is the potential
-scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
-</div>
-</div>
 </section>
 <section id="observations-and-problems" class="level4" data-number="1.3.6">
 <h4 data-number="1.3.6" class="anchored" data-anchor-id="observations-and-problems"><span class="header-section-number">1.3.6</span> Observations and Problems</h4>
 <ul>
 <li><p>Rhat of all the parameters is 1.00, and it seems that the Markov chains converged well enough.</p></li>
-<li><p>From the point estimate of time coefficient, it seems that this stimulation even has a negative impact on patients’ performance. Is it reliable? The CI of the time coefficient is [-1.18,0.20], so it’s hard to say and we need more evaluation methods to check the performance of this model but I’ll pause here because it’s just an attempt.</p></li>
-<li><p>mdur and mbase both have negative impact on patients’ performance from this model’s result.</p></li>
+<li><p>From the point estimate of time coefficient, it seems that this stimulation even has a slightly positive impact on patients’ performance. Is it reliable? The CI of the time coefficient is [-1.18,0.20], so it’s hard to say and we need more evaluation methods to check the performance of this model but I’ll pause here because it’s just an attempt.</p></li>
+<li><p>mdur and mbase both have positive impacts on patients’ performance improvement from this model’s result.</p></li>
 <li><p>The linear Bayesian model and prior choices seem too casual, and I plan to discover some models which are more compatible with this problem.</p></li>
 </ul>
 </section>
@@ -339,10 +309,91 @@ scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
 <li>Performed a prior predictive check to ensure that your priors are reasonable</li>
 </ul>
 </section>
-<section id="code-and-results" class="level4" data-number="1.4.2">
-<h4 data-number="1.4.2" class="anchored" data-anchor-id="code-and-results"><span class="header-section-number">1.4.2</span> Code and Results</h4>
+<section id="proposed-priors" class="level4" data-number="1.4.2">
+<h4 data-number="1.4.2" class="anchored" data-anchor-id="proposed-priors"><span class="header-section-number">1.4.2</span> Proposed priors</h4>
+<ul>
+<li><p>A correct prior choice should not be influenced by our dataset, so I will choose the priors based on common senses and some materials online.</p></li>
+<li><p>It’s shown from the Internet that Deep-brain stimulation is a widely used treatment on Parkinson patients. Thus, we tend to believe that it has a positive effect on patients over the time and we prefer the mean of prior distribution of <span class="math inline">\(\beta_1\)</span> to be negative (when <span class="math inline">\(\Delta y\)</span> decreases, the performance is better than the baseline). I chose <span class="math inline">\(\mathbf{N}(-1.0, 0.5^2)\)</span> as the prior, distributing some possibilities that it doesn’t have significant effect or even negative effects.</p></li>
+<li><p>Higher disease duration and higher baseline UPDRS scores imply that the diseases are more severe, and it tend to be easier to get a higher improvement from the baseline. However, there are also some cases that the diseases are too severe to achieve an improvement, so for <span class="math inline">\(\beta_2\)</span> and <span class="math inline">\(\beta_3\)</span> I chose <span class="math inline">\(\mathbf{N}(-0.5, 0.5^2)\)</span> as priors.</p></li>
+<li><p>For intercept <span class="math inline">\(\beta_0\)</span>, I actually have no ideas what it would be like. So I would choose <span class="math inline">\(\mathbf{N}(0, 10^2)\)</span> as the prior.</p></li>
+<li><p>Priors of the error term still keep this form: <span class="math inline">\(\quad\sigma\sim\mathbf{C}(0,2)\)</span></p></li>
+</ul>
+</section>
+<section id="new-priors-in-brms-and-prior-predictive-check" class="level4" data-number="1.4.3">
+<h4 data-number="1.4.3" class="anchored" data-anchor-id="new-priors-in-brms-and-prior-predictive-check"><span class="header-section-number">1.4.3</span> New Priors in brms and Prior Predictive Check</h4>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1"></a><span class="co"># Your code here</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1"></a>model_formula <span class="ot">&lt;-</span> <span class="fu">bf</span>(yi <span class="sc">~</span> time <span class="sc">+</span> mdur <span class="sc">+</span> mbase <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> study))</span>
+<span id="cb8-2"><a href="#cb8-2"></a></span>
+<span id="cb8-3"><a href="#cb8-3"></a>priors <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
+<span id="cb8-4"><a href="#cb8-4"></a>  <span class="fu">prior</span>(<span class="fu">normal</span>(<span class="sc">-</span><span class="fl">1.0</span>, <span class="fl">0.5</span>), <span class="at">class =</span> <span class="st">"b"</span>, <span class="at">coef =</span> <span class="st">"time"</span>),</span>
+<span id="cb8-5"><a href="#cb8-5"></a>  <span class="fu">prior</span>(<span class="fu">normal</span>(<span class="sc">-</span><span class="fl">0.5</span>, <span class="fl">0.5</span>), <span class="at">class =</span> <span class="st">"b"</span>, <span class="at">coef =</span> <span class="st">"mdur"</span>),</span>
+<span id="cb8-6"><a href="#cb8-6"></a>  <span class="fu">prior</span>(<span class="fu">normal</span>(<span class="sc">-</span><span class="fl">0.5</span>, <span class="fl">0.5</span>), <span class="at">class =</span> <span class="st">"b"</span>, <span class="at">coef =</span> <span class="st">"mbase"</span>),</span>
+<span id="cb8-7"><a href="#cb8-7"></a>  <span class="fu">prior</span>(<span class="fu">normal</span>(<span class="dv">0</span>, <span class="dv">10</span>), <span class="at">class =</span> <span class="st">"Intercept"</span>),</span>
+<span id="cb8-8"><a href="#cb8-8"></a>  <span class="fu">prior</span>(<span class="fu">cauchy</span>(<span class="dv">0</span>, <span class="dv">2</span>), <span class="at">class =</span> <span class="st">"sd"</span>)</span>
+<span id="cb8-9"><a href="#cb8-9"></a>)</span>
+<span id="cb8-10"><a href="#cb8-10"></a></span>
+<span id="cb8-11"><a href="#cb8-11"></a>fit <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
+<span id="cb8-12"><a href="#cb8-12"></a>  <span class="at">formula =</span> model_formula,</span>
+<span id="cb8-13"><a href="#cb8-13"></a>  <span class="at">data =</span> dat,</span>
+<span id="cb8-14"><a href="#cb8-14"></a>  <span class="at">family =</span> <span class="fu">gaussian</span>(),</span>
+<span id="cb8-15"><a href="#cb8-15"></a>  <span class="at">prior =</span> priors,</span>
+<span id="cb8-16"><a href="#cb8-16"></a>  <span class="at">sample_prior =</span> <span class="st">"only"</span>,</span>
+<span id="cb8-17"><a href="#cb8-17"></a>  <span class="at">chains =</span> <span class="dv">4</span>,</span>
+<span id="cb8-18"><a href="#cb8-18"></a>  <span class="at">iter =</span> <span class="dv">2000</span>,</span>
+<span id="cb8-19"><a href="#cb8-19"></a>  <span class="at">control =</span> <span class="fu">list</span>(<span class="at">adapt_delta =</span> <span class="fl">0.95</span>)</span>
+<span id="cb8-20"><a href="#cb8-20"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code> Family: gaussian 
+  Links: mu = identity; sigma = identity 
+Formula: yi ~ time + mdur + mbase + (1 | study) 
+   Data: dat (Number of observations: 82) 
+  Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1;
+         total post-warmup draws = 4000
+
+Multilevel Hyperparameters:
+~study (Number of levels: 46) 
+              Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+sd(Intercept)    13.25    272.69     0.08    48.19 1.00     8778     2283
+
+Regression Coefficients:
+          Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+Intercept    35.77     29.42   -21.54    93.15 1.00    11239     2790
+time         -1.00      0.51    -2.01    -0.02 1.00    10827     2958
+mdur         -0.51      0.51    -1.50     0.49 1.00    11963     2742
+mbase        -0.50      0.51    -1.50     0.51 1.00    10817     2921
+
+Further Distributional Parameters:
+      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+sigma     8.09     10.95     0.24    31.51 1.00     6337     2185
+
+Draws were sampled using sample(hmc). For each parameter, Bulk_ESS
+and Tail_ESS are effective sample size measures, and Rhat is the potential
+scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Method 'posterior_samples' is deprecated. Please see ?as_draws for
+recommended alternatives.</code></pre>
+</div>
+<div class="cell-output-display">
+<p><img src="Diary_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output-display">
+<p><img src="Diary_files/figure-html/unnamed-chunk-7-2.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output-display">
+<p><img src="Diary_files/figure-html/unnamed-chunk-7-3.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output-display">
+<p><img src="Diary_files/figure-html/unnamed-chunk-7-4.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output-display">
+<p><img src="Diary_files/figure-html/unnamed-chunk-7-5.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output-display">
+<p><img src="Diary_files/figure-html/unnamed-chunk-7-6.png" class="img-fluid" width="672"></p>
+</div>
 </div>
 </section>
 </section>
@@ -358,10 +409,10 @@ scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
 <li>Performed predictive performance assessment</li>
 </ul>
 </section>
-<section id="code-and-results-1" class="level4" data-number="1.5.2">
-<h4 data-number="1.5.2" class="anchored" data-anchor-id="code-and-results-1"><span class="header-section-number">1.5.2</span> Code and Results</h4>
+<section id="code-and-results" class="level4" data-number="1.5.2">
+<h4 data-number="1.5.2" class="anchored" data-anchor-id="code-and-results"><span class="header-section-number">1.5.2</span> Code and Results</h4>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1"></a><span class="co"># Your code here</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1"></a><span class="co"># Your code here</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 </section>
@@ -375,10 +426,10 @@ scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
 <li>Proposed a second model (or an expansion to the first), building on the issues/diagnostics/concepts from previous weeks</li>
 </ul>
 </section>
-<section id="code-and-results-2" class="level4" data-number="1.6.2">
-<h4 data-number="1.6.2" class="anchored" data-anchor-id="code-and-results-2"><span class="header-section-number">1.6.2</span> Code and Results</h4>
+<section id="code-and-results-1" class="level4" data-number="1.6.2">
+<h4 data-number="1.6.2" class="anchored" data-anchor-id="code-and-results-1"><span class="header-section-number">1.6.2</span> Code and Results</h4>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1"></a><span class="co"># Your code here</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1"></a><span class="co"># Your code here</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 </section>
@@ -392,10 +443,10 @@ scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
 <li>Prepared a visualisation of your results that is suitable for presentation to a non-technical audience</li>
 </ul>
 </section>
-<section id="code-and-results-3" class="level4" data-number="1.7.2">
-<h4 data-number="1.7.2" class="anchored" data-anchor-id="code-and-results-3"><span class="header-section-number">1.7.2</span> Code and Results</h4>
+<section id="code-and-results-2" class="level4" data-number="1.7.2">
+<h4 data-number="1.7.2" class="anchored" data-anchor-id="code-and-results-2"><span class="header-section-number">1.7.2</span> Code and Results</h4>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1"></a><span class="co"># Your code here</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1"></a><span class="co"># Your code here</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 </section>
@@ -702,236 +753,283 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
   }
 });
 </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
-<div class="sourceCode" id="cb13" data-shortcodes="false"><pre class="sourceCode numberSource markdown number-lines code-with-copy"><code class="sourceCode markdown"><span id="cb13-1"><a href="#cb13-1"></a><span class="co">---</span></span>
-<span id="cb13-2"><a href="#cb13-2"></a><span class="an">title:</span><span class="co"> "Bayesian Workflow Diary"</span></span>
-<span id="cb13-3"><a href="#cb13-3"></a><span class="an">date:</span><span class="co"> 2023-04-22</span></span>
-<span id="cb13-4"><a href="#cb13-4"></a><span class="an">author:</span><span class="co"> Anlin Sun</span></span>
-<span id="cb13-5"><a href="#cb13-5"></a><span class="an">format:</span></span>
-<span id="cb13-6"><a href="#cb13-6"></a><span class="co">  html:</span></span>
-<span id="cb13-7"><a href="#cb13-7"></a><span class="co">    toc: true</span></span>
-<span id="cb13-8"><a href="#cb13-8"></a><span class="co">    code-tools: true</span></span>
-<span id="cb13-9"><a href="#cb13-9"></a><span class="co">    code-line-numbers: true</span></span>
-<span id="cb13-10"><a href="#cb13-10"></a><span class="co">    number-sections: true</span></span>
-<span id="cb13-11"><a href="#cb13-11"></a><span class="co">    mainfont: Calibri, serif</span></span>
-<span id="cb13-12"><a href="#cb13-12"></a><span class="co">    page-layout: article</span></span>
-<span id="cb13-13"><a href="#cb13-13"></a><span class="co">---</span></span>
-<span id="cb13-14"><a href="#cb13-14"></a></span>
-<span id="cb13-17"><a href="#cb13-17"></a><span class="in">```{r}</span></span>
-<span id="cb13-18"><a href="#cb13-18"></a><span class="co">#| message: false</span></span>
-<span id="cb13-19"><a href="#cb13-19"></a><span class="co">#| warning: false</span></span>
-<span id="cb13-20"><a href="#cb13-20"></a></span>
-<span id="cb13-21"><a href="#cb13-21"></a><span class="in">```</span></span>
-<span id="cb13-22"><a href="#cb13-22"></a></span>
-<span id="cb13-23"><a href="#cb13-23"></a><span class="fu">## Bayesian Workflow</span></span>
-<span id="cb13-24"><a href="#cb13-24"></a></span>
-<span id="cb13-25"><a href="#cb13-25"></a><span class="fu">### Set up</span></span>
-<span id="cb13-26"><a href="#cb13-26"></a></span>
-<span id="cb13-27"><a href="#cb13-27"></a>AI tools are used to give hints on plots and codes.</span>
-<span id="cb13-28"><a href="#cb13-28"></a></span>
-<span id="cb13-31"><a href="#cb13-31"></a><span class="in">```{r}</span></span>
-<span id="cb13-32"><a href="#cb13-32"></a><span class="co">#| label: imports</span></span>
-<span id="cb13-33"><a href="#cb13-33"></a><span class="co">#| message: false</span></span>
-<span id="cb13-34"><a href="#cb13-34"></a><span class="co">#| warning: false</span></span>
-<span id="cb13-35"><a href="#cb13-35"></a><span class="fu">library</span>(bayesplot)</span>
-<span id="cb13-36"><a href="#cb13-36"></a><span class="fu">library</span>(cmdstanr)</span>
-<span id="cb13-37"><a href="#cb13-37"></a><span class="fu">library</span>(dplyr)</span>
-<span id="cb13-38"><a href="#cb13-38"></a><span class="fu">library</span>(ggplot2)</span>
-<span id="cb13-39"><a href="#cb13-39"></a><span class="fu">library</span>(ggdist) <span class="co"># for stat_dotsinterval</span></span>
-<span id="cb13-40"><a href="#cb13-40"></a><span class="fu">library</span>(posterior)</span>
-<span id="cb13-41"><a href="#cb13-41"></a><span class="fu">library</span>(brms)</span>
-<span id="cb13-42"><a href="#cb13-42"></a><span class="fu">library</span>(rstan)</span>
-<span id="cb13-43"><a href="#cb13-43"></a><span class="fu">library</span>(plotly)</span>
-<span id="cb13-44"><a href="#cb13-44"></a><span class="fu">library</span>(patchwork)</span>
-<span id="cb13-45"><a href="#cb13-45"></a><span class="fu">library</span>(knitr)</span>
-<span id="cb13-46"><a href="#cb13-46"></a><span class="fu">library</span>(kableExtra)</span>
-<span id="cb13-47"><a href="#cb13-47"></a><span class="fu">library</span>(metadat)</span>
-<span id="cb13-48"><a href="#cb13-48"></a><span class="fu">library</span>(metafor)</span>
-<span id="cb13-49"><a href="#cb13-49"></a><span class="co"># Globally specfiy cmdstan backend for brms</span></span>
-<span id="cb13-50"><a href="#cb13-50"></a><span class="fu">options</span>(<span class="at">brms.backend=</span><span class="st">"cmdstanr"</span>)</span>
-<span id="cb13-51"><a href="#cb13-51"></a><span class="co"># Tell brms to cache results if possible</span></span>
-<span id="cb13-52"><a href="#cb13-52"></a><span class="fu">options</span>(<span class="at">brms.file_refit=</span><span class="st">"on_change"</span>)</span>
-<span id="cb13-53"><a href="#cb13-53"></a></span>
-<span id="cb13-54"><a href="#cb13-54"></a><span class="co"># Set more readable themes with bigger font for plotting packages</span></span>
-<span id="cb13-55"><a href="#cb13-55"></a>ggplot2<span class="sc">::</span><span class="fu">theme_set</span>(<span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">14</span>))</span>
-<span id="cb13-56"><a href="#cb13-56"></a>bayesplot<span class="sc">::</span><span class="fu">bayesplot_theme_set</span>(<span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">14</span>))</span>
-<span id="cb13-57"><a href="#cb13-57"></a><span class="in">```</span></span>
-<span id="cb13-58"><a href="#cb13-58"></a></span>
-<span id="cb13-59"><a href="#cb13-59"></a><span class="fu">### Loading Data and Preprocessing</span></span>
-<span id="cb13-60"><a href="#cb13-60"></a></span>
-<span id="cb13-61"><a href="#cb13-61"></a>Use this section of the diary for loading your dataset of choice and performing any necessary preprocessing. This could include cleaning the data, transforming variables, or creating new variables. Remember that you should be able to re-run or modify this code if needed during the interactive presentations.</span>
-<span id="cb13-62"><a href="#cb13-62"></a></span>
-<span id="cb13-65"><a href="#cb13-65"></a><span class="in">```{r}</span></span>
-<span id="cb13-66"><a href="#cb13-66"></a><span class="do">### copy data into 'dat' and examine data</span></span>
-<span id="cb13-67"><a href="#cb13-67"></a>dat <span class="ot">&lt;-</span> dat.ishak2007</span>
-<span id="cb13-68"><a href="#cb13-68"></a><span class="fu">head</span>(dat, <span class="dv">10</span>)</span>
-<span id="cb13-69"><a href="#cb13-69"></a></span>
-<span id="cb13-70"><a href="#cb13-70"></a><span class="do">### load metafor package</span></span>
-<span id="cb13-71"><a href="#cb13-71"></a></span>
-<span id="cb13-72"><a href="#cb13-72"></a></span>
-<span id="cb13-73"><a href="#cb13-73"></a><span class="do">### create long format dataset</span></span>
-<span id="cb13-74"><a href="#cb13-74"></a>dat <span class="ot">&lt;-</span> <span class="fu">reshape</span>(dat, <span class="at">direction=</span><span class="st">"long"</span>, <span class="at">idvar=</span><span class="st">"study"</span>, <span class="at">v.names=</span><span class="fu">c</span>(<span class="st">"yi"</span>,<span class="st">"vi"</span>),</span>
-<span id="cb13-75"><a href="#cb13-75"></a>               <span class="at">varying=</span><span class="fu">list</span>(<span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">4</span>,<span class="dv">6</span>,<span class="dv">8</span>), <span class="fu">c</span>(<span class="dv">3</span>,<span class="dv">5</span>,<span class="dv">7</span>,<span class="dv">9</span>)))</span>
-<span id="cb13-76"><a href="#cb13-76"></a>dat <span class="ot">&lt;-</span> dat[<span class="fu">order</span>(study, time),]</span>
-<span id="cb13-77"><a href="#cb13-77"></a></span>
-<span id="cb13-78"><a href="#cb13-78"></a><span class="do">### remove missing measurement occasions from dat.long</span></span>
-<span id="cb13-79"><a href="#cb13-79"></a>dat <span class="ot">&lt;-</span> dat[<span class="sc">!</span><span class="fu">is.na</span>(yi),]</span>
-<span id="cb13-80"><a href="#cb13-80"></a><span class="fu">rownames</span>(dat) <span class="ot">&lt;-</span> <span class="cn">NULL</span></span>
-<span id="cb13-81"><a href="#cb13-81"></a><span class="fu">head</span>(dat, <span class="dv">10</span>)</span>
-<span id="cb13-82"><a href="#cb13-82"></a><span class="in">```</span></span>
-<span id="cb13-83"><a href="#cb13-83"></a></span>
-<span id="cb13-84"><a href="#cb13-84"></a><span class="fu">### Week 1: Exploratory Data Analysis and Choosing a Research Question</span></span>
-<span id="cb13-85"><a href="#cb13-85"></a></span>
-<span id="cb13-86"><a href="#cb13-86"></a><span class="fu">#### Goal</span></span>
-<span id="cb13-87"><a href="#cb13-87"></a></span>
-<span id="cb13-88"><a href="#cb13-88"></a>After this week, you should have:</span>
-<span id="cb13-89"><a href="#cb13-89"></a></span>
-<span id="cb13-90"><a href="#cb13-90"></a><span class="ss">-   </span>Setting up your project, for example, using the provided templates</span>
-<span id="cb13-91"><a href="#cb13-91"></a><span class="ss">-   </span>Formulating a research question &amp; finding a dataset</span>
-<span id="cb13-92"><a href="#cb13-92"></a><span class="ss">-   </span>Visualising and getting familiar with characteristics of your data (e.g., range, data types)</span>
-<span id="cb13-93"><a href="#cb13-93"></a><span class="ss">-   </span>Adding your first notes and visualisations to the workflow diary</span>
-<span id="cb13-94"><a href="#cb13-94"></a><span class="ss">-   </span>Picking an initial model &amp; documenting your reasoning and the strategies you used to choose it</span>
-<span id="cb13-95"><a href="#cb13-95"></a><span class="ss">-   </span>Obtaining posterior samples using your initial model with default priors</span>
-<span id="cb13-96"><a href="#cb13-96"></a><span class="ss">-   </span>Documenting what you observe and any issues you encounter in the workflow diary</span>
-<span id="cb13-97"><a href="#cb13-97"></a></span>
-<span id="cb13-98"><a href="#cb13-98"></a><span class="fu">#### Research Question</span></span>
-<span id="cb13-99"><a href="#cb13-99"></a></span>
-<span id="cb13-100"><a href="#cb13-100"></a><span class="ss">-   </span>Does the deep-brain stimulation has significant positive effects on patients with Parkinson's disease?</span>
-<span id="cb13-101"><a href="#cb13-101"></a><span class="ss">-   </span>If so, what is the trend of their UPDRS score over the time?</span>
-<span id="cb13-102"><a href="#cb13-102"></a><span class="ss">-   </span>Do mean disease duration and mean baseline UPDRS scores have effects on this trend? What effects?</span>
-<span id="cb13-103"><a href="#cb13-103"></a></span>
-<span id="cb13-104"><a href="#cb13-104"></a><span class="fu">#### Data Visualization</span></span>
-<span id="cb13-105"><a href="#cb13-105"></a></span>
-<span id="cb13-108"><a href="#cb13-108"></a><span class="in">```{r}</span></span>
-<span id="cb13-109"><a href="#cb13-109"></a><span class="co">#| warning: false</span></span>
-<span id="cb13-110"><a href="#cb13-110"></a><span class="do">### plot data</span></span>
-<span id="cb13-111"><a href="#cb13-111"></a><span class="fu">library</span>(ggplot2)</span>
-<span id="cb13-112"><a href="#cb13-112"></a></span>
-<span id="cb13-113"><a href="#cb13-113"></a><span class="fu">ggplot</span>(dat, <span class="fu">aes</span>(<span class="at">x =</span> time, <span class="at">y =</span> yi, <span class="at">color =</span> <span class="fu">factor</span>(study), <span class="at">group =</span> study)) <span class="sc">+</span></span>
-<span id="cb13-114"><a href="#cb13-114"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span>  </span>
-<span id="cb13-115"><a href="#cb13-115"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span>  </span>
-<span id="cb13-116"><a href="#cb13-116"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Time Point"</span>, <span class="at">y =</span> <span class="st">"Mean Difference"</span>) <span class="sc">+</span></span>
-<span id="cb13-117"><a href="#cb13-117"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
-<span id="cb13-118"><a href="#cb13-118"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>)) <span class="sc">+</span></span>
-<span id="cb13-119"><a href="#cb13-119"></a>  <span class="fu">guides</span>(<span class="at">color =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb13-120"><a href="#cb13-120"></a><span class="in">```</span></span>
-<span id="cb13-121"><a href="#cb13-121"></a></span>
-<span id="cb13-122"><a href="#cb13-122"></a>Intuitively, this treatment roughly has a positive effect over the time, but not too obvious from the visualization.</span>
-<span id="cb13-123"><a href="#cb13-123"></a></span>
-<span id="cb13-124"><a href="#cb13-124"></a><span class="fu">#### Initial model</span></span>
-<span id="cb13-125"><a href="#cb13-125"></a></span>
-<span id="cb13-126"><a href="#cb13-126"></a>To be simple at the start, I picked the Bayesian linear regression model at the first attempt, because it's concise enough and considers all of the factors from the dataset. I can adjust my model based on the performance of this linear model.</span>
-<span id="cb13-127"><a href="#cb13-127"></a></span>
-<span id="cb13-128"><a href="#cb13-128"></a><span class="ss">-   </span>**Likelihood**: $$\Delta y_{it}=\beta_0 + \beta_1*time + \beta_2*mdur_i+ \beta_3*mbase_i + b_i + \epsilon_{it}$$ $$b_i\sim\bf{N}(0,\sigma_b^2),\quad\epsilon\sim\bf{N}(0,\sigma^2)$$</span>
-<span id="cb13-129"><a href="#cb13-129"></a></span>
-<span id="cb13-130"><a href="#cb13-130"></a><span class="ss">-   </span>**Prior**: $$\beta_\_\sim\bf{N}(0,5),\quad\sigma_<span class="sc">\_</span>\sim\bf{C}(0,2)$$</span>
-<span id="cb13-131"><a href="#cb13-131"></a></span>
-<span id="cb13-132"><a href="#cb13-132"></a><span class="fu">#### Model Definition and Fitting</span></span>
-<span id="cb13-133"><a href="#cb13-133"></a></span>
-<span id="cb13-136"><a href="#cb13-136"></a><span class="in">```{r}</span></span>
-<span id="cb13-137"><a href="#cb13-137"></a><span class="co">#| message: false</span></span>
-<span id="cb13-138"><a href="#cb13-138"></a><span class="co">#| warning: false</span></span>
-<span id="cb13-139"><a href="#cb13-139"></a><span class="co">#| results: 'hide'</span></span>
-<span id="cb13-140"><a href="#cb13-140"></a>model_formula <span class="ot">&lt;-</span> <span class="fu">bf</span>(yi <span class="sc">~</span> time <span class="sc">+</span> mdur <span class="sc">+</span> mbase <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> study))</span>
-<span id="cb13-141"><a href="#cb13-141"></a></span>
-<span id="cb13-142"><a href="#cb13-142"></a>priors <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
-<span id="cb13-143"><a href="#cb13-143"></a>  <span class="fu">prior</span>(<span class="fu">normal</span>(<span class="dv">0</span>, <span class="dv">5</span>), <span class="at">class =</span> <span class="st">"b"</span>),</span>
-<span id="cb13-144"><a href="#cb13-144"></a>  <span class="fu">prior</span>(<span class="fu">cauchy</span>(<span class="dv">0</span>, <span class="dv">2</span>), <span class="at">class =</span> <span class="st">"sd"</span>)</span>
-<span id="cb13-145"><a href="#cb13-145"></a>)</span>
-<span id="cb13-146"><a href="#cb13-146"></a></span>
-<span id="cb13-147"><a href="#cb13-147"></a>fit <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
-<span id="cb13-148"><a href="#cb13-148"></a>  <span class="at">formula =</span> model_formula,</span>
-<span id="cb13-149"><a href="#cb13-149"></a>  <span class="at">data =</span> dat,</span>
-<span id="cb13-150"><a href="#cb13-150"></a>  <span class="at">family =</span> <span class="fu">gaussian</span>(),</span>
-<span id="cb13-151"><a href="#cb13-151"></a>  <span class="at">prior =</span> priors,</span>
-<span id="cb13-152"><a href="#cb13-152"></a>  <span class="at">chains =</span> <span class="dv">4</span>,</span>
-<span id="cb13-153"><a href="#cb13-153"></a>  <span class="at">iter =</span> <span class="dv">2000</span>,</span>
-<span id="cb13-154"><a href="#cb13-154"></a>  <span class="at">control =</span> <span class="fu">list</span>(<span class="at">adapt_delta =</span> <span class="fl">0.95</span>)</span>
-<span id="cb13-155"><a href="#cb13-155"></a>)</span>
-<span id="cb13-156"><a href="#cb13-156"></a><span class="in">```</span></span>
-<span id="cb13-157"><a href="#cb13-157"></a><span class="in">```{r model-summary, echo=FALSE}</span></span>
-<span id="cb13-158"><a href="#cb13-158"></a><span class="fu">summary</span>(fit)</span>
-<span id="cb13-159"><a href="#cb13-159"></a><span class="in">```</span></span>
-<span id="cb13-160"><a href="#cb13-160"></a></span>
-<span id="cb13-161"><a href="#cb13-161"></a><span class="fu">#### Observations and Problems</span></span>
-<span id="cb13-162"><a href="#cb13-162"></a></span>
-<span id="cb13-163"><a href="#cb13-163"></a><span class="ss">-   </span>Rhat of all the parameters is 1.00, and it seems that the Markov chains converged well enough.</span>
-<span id="cb13-164"><a href="#cb13-164"></a></span>
-<span id="cb13-165"><a href="#cb13-165"></a><span class="ss">-   </span>From the point estimate of time coefficient, it seems that this stimulation even has a negative impact on patients' performance. Is it reliable? The CI of the time coefficient is <span class="sc">\[</span>-1.18,0.20<span class="sc">\]</span>, so it's hard to say and we need more evaluation methods to check the performance of this model but I'll pause here because it's just an attempt.</span>
-<span id="cb13-166"><a href="#cb13-166"></a></span>
-<span id="cb13-167"><a href="#cb13-167"></a><span class="ss">-   </span>mdur and mbase both have negative impact on patients' performance from this model's result.</span>
-<span id="cb13-168"><a href="#cb13-168"></a></span>
-<span id="cb13-169"><a href="#cb13-169"></a><span class="ss">-   </span>The linear Bayesian model and prior choices seem too casual, and I plan to discover some models which are more compatible with this problem.</span>
-<span id="cb13-170"><a href="#cb13-170"></a></span>
-<span id="cb13-171"><a href="#cb13-171"></a><span class="fu">### Week 2: Prior Choice</span></span>
-<span id="cb13-172"><a href="#cb13-172"></a></span>
-<span id="cb13-173"><a href="#cb13-173"></a><span class="fu">#### Goal</span></span>
-<span id="cb13-174"><a href="#cb13-174"></a></span>
-<span id="cb13-175"><a href="#cb13-175"></a>After this week, you should have:</span>
-<span id="cb13-176"><a href="#cb13-176"></a></span>
-<span id="cb13-177"><a href="#cb13-177"></a><span class="ss">-   </span>Proposed priors for each parameter in your model, with justification</span>
-<span id="cb13-178"><a href="#cb13-178"></a><span class="ss">-   </span>Performed a prior predictive check to ensure that your priors are reasonable</span>
-<span id="cb13-179"><a href="#cb13-179"></a></span>
-<span id="cb13-180"><a href="#cb13-180"></a><span class="fu">#### Code and Results</span></span>
-<span id="cb13-181"><a href="#cb13-181"></a></span>
-<span id="cb13-184"><a href="#cb13-184"></a><span class="in">```{r}</span></span>
-<span id="cb13-185"><a href="#cb13-185"></a><span class="co"># Your code here</span></span>
-<span id="cb13-186"><a href="#cb13-186"></a><span class="in">```</span></span>
-<span id="cb13-187"><a href="#cb13-187"></a></span>
-<span id="cb13-188"><a href="#cb13-188"></a><span class="fu">### Week 3: Model Fitting and Checking</span></span>
-<span id="cb13-189"><a href="#cb13-189"></a></span>
-<span id="cb13-190"><a href="#cb13-190"></a><span class="fu">#### Goal</span></span>
-<span id="cb13-191"><a href="#cb13-191"></a></span>
-<span id="cb13-192"><a href="#cb13-192"></a>After this week, you should have:</span>
-<span id="cb13-193"><a href="#cb13-193"></a></span>
-<span id="cb13-194"><a href="#cb13-194"></a><span class="ss">-   </span>Fitted your model with chosen priors to your data</span>
-<span id="cb13-195"><a href="#cb13-195"></a><span class="ss">-   </span>Performed diagnostic checks for quality/stability of fitting</span>
-<span id="cb13-196"><a href="#cb13-196"></a><span class="ss">-   </span>Performed prior sensitivity assessment</span>
-<span id="cb13-197"><a href="#cb13-197"></a><span class="ss">-   </span>Performed predictive performance assessment</span>
-<span id="cb13-198"><a href="#cb13-198"></a></span>
-<span id="cb13-199"><a href="#cb13-199"></a><span class="fu">#### Code and Results</span></span>
-<span id="cb13-200"><a href="#cb13-200"></a></span>
-<span id="cb13-203"><a href="#cb13-203"></a><span class="in">```{r}</span></span>
-<span id="cb13-204"><a href="#cb13-204"></a><span class="co"># Your code here</span></span>
-<span id="cb13-205"><a href="#cb13-205"></a><span class="in">```</span></span>
-<span id="cb13-206"><a href="#cb13-206"></a></span>
-<span id="cb13-207"><a href="#cb13-207"></a><span class="fu">### Week 4: Extending Models and Model Selection</span></span>
-<span id="cb13-208"><a href="#cb13-208"></a></span>
-<span id="cb13-209"><a href="#cb13-209"></a><span class="fu">#### Goal</span></span>
-<span id="cb13-210"><a href="#cb13-210"></a></span>
-<span id="cb13-211"><a href="#cb13-211"></a>After this week, you should have:</span>
-<span id="cb13-212"><a href="#cb13-212"></a></span>
-<span id="cb13-213"><a href="#cb13-213"></a><span class="ss">-   </span>Decided on whether a model expansion or selection approach is relevant for your research question, with justification</span>
-<span id="cb13-214"><a href="#cb13-214"></a><span class="ss">-   </span>Proposed a second model (or an expansion to the first), building on the issues/diagnostics/concepts from previous weeks</span>
-<span id="cb13-215"><a href="#cb13-215"></a></span>
-<span id="cb13-216"><a href="#cb13-216"></a><span class="fu">#### Code and Results</span></span>
-<span id="cb13-217"><a href="#cb13-217"></a></span>
-<span id="cb13-220"><a href="#cb13-220"></a><span class="in">```{r}</span></span>
-<span id="cb13-221"><a href="#cb13-221"></a><span class="co"># Your code here</span></span>
-<span id="cb13-222"><a href="#cb13-222"></a><span class="in">```</span></span>
-<span id="cb13-223"><a href="#cb13-223"></a></span>
-<span id="cb13-224"><a href="#cb13-224"></a><span class="fu">### Week 5: Interpreting and Presenting Model Results</span></span>
-<span id="cb13-225"><a href="#cb13-225"></a></span>
-<span id="cb13-226"><a href="#cb13-226"></a><span class="fu">#### Goal</span></span>
-<span id="cb13-227"><a href="#cb13-227"></a></span>
-<span id="cb13-228"><a href="#cb13-228"></a>After this week, you should have:</span>
-<span id="cb13-229"><a href="#cb13-229"></a></span>
-<span id="cb13-230"><a href="#cb13-230"></a><span class="ss">-   </span>Prepared a concise summary of your results and how they answer your research question</span>
-<span id="cb13-231"><a href="#cb13-231"></a><span class="ss">-   </span>Prepared a visualisation of your results that is suitable for presentation to a non-technical audience</span>
-<span id="cb13-232"><a href="#cb13-232"></a></span>
-<span id="cb13-233"><a href="#cb13-233"></a><span class="fu">#### Code and Results</span></span>
-<span id="cb13-234"><a href="#cb13-234"></a></span>
-<span id="cb13-237"><a href="#cb13-237"></a><span class="in">```{r}</span></span>
-<span id="cb13-238"><a href="#cb13-238"></a><span class="co"># Your code here</span></span>
-<span id="cb13-239"><a href="#cb13-239"></a><span class="in">```</span></span>
-<span id="cb13-240"><a href="#cb13-240"></a></span>
-<span id="cb13-241"><a href="#cb13-241"></a><span class="fu">### Week 6: Final Notebook</span></span>
-<span id="cb13-242"><a href="#cb13-242"></a></span>
-<span id="cb13-243"><a href="#cb13-243"></a><span class="fu">#### Goal</span></span>
-<span id="cb13-244"><a href="#cb13-244"></a></span>
-<span id="cb13-245"><a href="#cb13-245"></a>After this week, you should have:</span>
-<span id="cb13-246"><a href="#cb13-246"></a></span>
-<span id="cb13-247"><a href="#cb13-247"></a><span class="ss">-   </span>Prepared a separate notebook summarising your analysis and results in the form of a case study</span>
-<span id="cb13-248"><a href="#cb13-248"></a><span class="ss">    -   </span>Be sure to use the case studies provided in this course to guide you</span>
+<div class="sourceCode" id="cb14" data-shortcodes="false"><pre class="sourceCode numberSource markdown number-lines code-with-copy"><code class="sourceCode markdown"><span id="cb14-1"><a href="#cb14-1"></a><span class="co">---</span></span>
+<span id="cb14-2"><a href="#cb14-2"></a><span class="an">title:</span><span class="co"> "Bayesian Workflow Diary"</span></span>
+<span id="cb14-3"><a href="#cb14-3"></a><span class="an">date:</span><span class="co"> 2023-04-22</span></span>
+<span id="cb14-4"><a href="#cb14-4"></a><span class="an">author:</span><span class="co"> Anlin Sun</span></span>
+<span id="cb14-5"><a href="#cb14-5"></a><span class="an">format:</span></span>
+<span id="cb14-6"><a href="#cb14-6"></a><span class="co">  html:</span></span>
+<span id="cb14-7"><a href="#cb14-7"></a><span class="co">    toc: true</span></span>
+<span id="cb14-8"><a href="#cb14-8"></a><span class="co">    code-tools: true</span></span>
+<span id="cb14-9"><a href="#cb14-9"></a><span class="co">    code-line-numbers: true</span></span>
+<span id="cb14-10"><a href="#cb14-10"></a><span class="co">    number-sections: true</span></span>
+<span id="cb14-11"><a href="#cb14-11"></a><span class="co">    mainfont: Calibri, serif</span></span>
+<span id="cb14-12"><a href="#cb14-12"></a><span class="co">    page-layout: article</span></span>
+<span id="cb14-13"><a href="#cb14-13"></a><span class="co">---</span></span>
+<span id="cb14-14"><a href="#cb14-14"></a></span>
+<span id="cb14-17"><a href="#cb14-17"></a><span class="in">```{r}</span></span>
+<span id="cb14-18"><a href="#cb14-18"></a><span class="co">#| message: false</span></span>
+<span id="cb14-19"><a href="#cb14-19"></a><span class="co">#| warning: false</span></span>
+<span id="cb14-20"><a href="#cb14-20"></a></span>
+<span id="cb14-21"><a href="#cb14-21"></a><span class="in">```</span></span>
+<span id="cb14-22"><a href="#cb14-22"></a></span>
+<span id="cb14-23"><a href="#cb14-23"></a><span class="fu">## Bayesian Workflow</span></span>
+<span id="cb14-24"><a href="#cb14-24"></a></span>
+<span id="cb14-25"><a href="#cb14-25"></a><span class="fu">### Set up</span></span>
+<span id="cb14-26"><a href="#cb14-26"></a></span>
+<span id="cb14-27"><a href="#cb14-27"></a>AI tools are used to give hints on plots and codes.</span>
+<span id="cb14-28"><a href="#cb14-28"></a></span>
+<span id="cb14-31"><a href="#cb14-31"></a><span class="in">```{r}</span></span>
+<span id="cb14-32"><a href="#cb14-32"></a><span class="co">#| label: imports</span></span>
+<span id="cb14-33"><a href="#cb14-33"></a><span class="co">#| message: false</span></span>
+<span id="cb14-34"><a href="#cb14-34"></a><span class="co">#| warning: false</span></span>
+<span id="cb14-35"><a href="#cb14-35"></a><span class="fu">library</span>(bayesplot)</span>
+<span id="cb14-36"><a href="#cb14-36"></a><span class="fu">library</span>(cmdstanr)</span>
+<span id="cb14-37"><a href="#cb14-37"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb14-38"><a href="#cb14-38"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb14-39"><a href="#cb14-39"></a><span class="fu">library</span>(ggdist) <span class="co"># for stat_dotsinterval</span></span>
+<span id="cb14-40"><a href="#cb14-40"></a><span class="fu">library</span>(posterior)</span>
+<span id="cb14-41"><a href="#cb14-41"></a><span class="fu">library</span>(brms)</span>
+<span id="cb14-42"><a href="#cb14-42"></a><span class="fu">library</span>(rstan)</span>
+<span id="cb14-43"><a href="#cb14-43"></a><span class="fu">library</span>(plotly)</span>
+<span id="cb14-44"><a href="#cb14-44"></a><span class="fu">library</span>(patchwork)</span>
+<span id="cb14-45"><a href="#cb14-45"></a><span class="fu">library</span>(knitr)</span>
+<span id="cb14-46"><a href="#cb14-46"></a><span class="fu">library</span>(kableExtra)</span>
+<span id="cb14-47"><a href="#cb14-47"></a><span class="fu">library</span>(metadat)</span>
+<span id="cb14-48"><a href="#cb14-48"></a><span class="fu">library</span>(metafor)</span>
+<span id="cb14-49"><a href="#cb14-49"></a><span class="co"># Globally specfiy cmdstan backend for brms</span></span>
+<span id="cb14-50"><a href="#cb14-50"></a><span class="fu">options</span>(<span class="at">brms.backend=</span><span class="st">"cmdstanr"</span>)</span>
+<span id="cb14-51"><a href="#cb14-51"></a><span class="co"># Tell brms to cache results if possible</span></span>
+<span id="cb14-52"><a href="#cb14-52"></a><span class="fu">options</span>(<span class="at">brms.file_refit=</span><span class="st">"on_change"</span>)</span>
+<span id="cb14-53"><a href="#cb14-53"></a></span>
+<span id="cb14-54"><a href="#cb14-54"></a><span class="co"># Set more readable themes with bigger font for plotting packages</span></span>
+<span id="cb14-55"><a href="#cb14-55"></a>ggplot2<span class="sc">::</span><span class="fu">theme_set</span>(<span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">14</span>))</span>
+<span id="cb14-56"><a href="#cb14-56"></a>bayesplot<span class="sc">::</span><span class="fu">bayesplot_theme_set</span>(<span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">14</span>))</span>
+<span id="cb14-57"><a href="#cb14-57"></a><span class="in">```</span></span>
+<span id="cb14-58"><a href="#cb14-58"></a></span>
+<span id="cb14-59"><a href="#cb14-59"></a><span class="fu">### Loading Data and Preprocessing</span></span>
+<span id="cb14-60"><a href="#cb14-60"></a></span>
+<span id="cb14-61"><a href="#cb14-61"></a>Use this section of the diary for loading your dataset of choice and performing any necessary preprocessing. This could include cleaning the data, transforming variables, or creating new variables. Remember that you should be able to re-run or modify this code if needed during the interactive presentations.</span>
+<span id="cb14-62"><a href="#cb14-62"></a></span>
+<span id="cb14-65"><a href="#cb14-65"></a><span class="in">```{r}</span></span>
+<span id="cb14-66"><a href="#cb14-66"></a><span class="do">### copy data into 'dat' and examine data</span></span>
+<span id="cb14-67"><a href="#cb14-67"></a>dat <span class="ot">&lt;-</span> dat.ishak2007</span>
+<span id="cb14-68"><a href="#cb14-68"></a><span class="fu">head</span>(dat, <span class="dv">10</span>)</span>
+<span id="cb14-69"><a href="#cb14-69"></a></span>
+<span id="cb14-70"><a href="#cb14-70"></a><span class="do">### load metafor package</span></span>
+<span id="cb14-71"><a href="#cb14-71"></a></span>
+<span id="cb14-72"><a href="#cb14-72"></a></span>
+<span id="cb14-73"><a href="#cb14-73"></a><span class="do">### create long format dataset</span></span>
+<span id="cb14-74"><a href="#cb14-74"></a>dat <span class="ot">&lt;-</span> <span class="fu">reshape</span>(dat, <span class="at">direction=</span><span class="st">"long"</span>, <span class="at">idvar=</span><span class="st">"study"</span>, <span class="at">v.names=</span><span class="fu">c</span>(<span class="st">"yi"</span>,<span class="st">"vi"</span>),</span>
+<span id="cb14-75"><a href="#cb14-75"></a>               <span class="at">varying=</span><span class="fu">list</span>(<span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">4</span>,<span class="dv">6</span>,<span class="dv">8</span>), <span class="fu">c</span>(<span class="dv">3</span>,<span class="dv">5</span>,<span class="dv">7</span>,<span class="dv">9</span>)))</span>
+<span id="cb14-76"><a href="#cb14-76"></a>dat <span class="ot">&lt;-</span> dat[<span class="fu">order</span>(study, time),]</span>
+<span id="cb14-77"><a href="#cb14-77"></a></span>
+<span id="cb14-78"><a href="#cb14-78"></a><span class="do">### remove missing measurement occasions from dat.long</span></span>
+<span id="cb14-79"><a href="#cb14-79"></a>dat <span class="ot">&lt;-</span> dat[<span class="sc">!</span><span class="fu">is.na</span>(yi),]</span>
+<span id="cb14-80"><a href="#cb14-80"></a><span class="fu">rownames</span>(dat) <span class="ot">&lt;-</span> <span class="cn">NULL</span></span>
+<span id="cb14-81"><a href="#cb14-81"></a><span class="fu">head</span>(dat, <span class="dv">10</span>)</span>
+<span id="cb14-82"><a href="#cb14-82"></a><span class="in">```</span></span>
+<span id="cb14-83"><a href="#cb14-83"></a></span>
+<span id="cb14-84"><a href="#cb14-84"></a><span class="fu">### Week 1: Exploratory Data Analysis and Choosing a Research Question</span></span>
+<span id="cb14-85"><a href="#cb14-85"></a></span>
+<span id="cb14-86"><a href="#cb14-86"></a><span class="fu">#### Goal</span></span>
+<span id="cb14-87"><a href="#cb14-87"></a></span>
+<span id="cb14-88"><a href="#cb14-88"></a>After this week, you should have:</span>
+<span id="cb14-89"><a href="#cb14-89"></a></span>
+<span id="cb14-90"><a href="#cb14-90"></a><span class="ss">-   </span>Setting up your project, for example, using the provided templates</span>
+<span id="cb14-91"><a href="#cb14-91"></a><span class="ss">-   </span>Formulating a research question &amp; finding a dataset</span>
+<span id="cb14-92"><a href="#cb14-92"></a><span class="ss">-   </span>Visualising and getting familiar with characteristics of your data (e.g., range, data types)</span>
+<span id="cb14-93"><a href="#cb14-93"></a><span class="ss">-   </span>Adding your first notes and visualisations to the workflow diary</span>
+<span id="cb14-94"><a href="#cb14-94"></a><span class="ss">-   </span>Picking an initial model &amp; documenting your reasoning and the strategies you used to choose it</span>
+<span id="cb14-95"><a href="#cb14-95"></a><span class="ss">-   </span>Obtaining posterior samples using your initial model with default priors</span>
+<span id="cb14-96"><a href="#cb14-96"></a><span class="ss">-   </span>Documenting what you observe and any issues you encounter in the workflow diary</span>
+<span id="cb14-97"><a href="#cb14-97"></a></span>
+<span id="cb14-98"><a href="#cb14-98"></a><span class="fu">#### Research Question</span></span>
+<span id="cb14-99"><a href="#cb14-99"></a></span>
+<span id="cb14-100"><a href="#cb14-100"></a><span class="ss">-   </span>Does the deep-brain stimulation has significant positive effects on patients with Parkinson's disease?</span>
+<span id="cb14-101"><a href="#cb14-101"></a><span class="ss">-   </span>If so, what is the trend of their UPDRS score over the time?</span>
+<span id="cb14-102"><a href="#cb14-102"></a><span class="ss">-   </span>Do mean disease duration and mean baseline UPDRS scores have effects on this trend? What effects?</span>
+<span id="cb14-103"><a href="#cb14-103"></a></span>
+<span id="cb14-104"><a href="#cb14-104"></a><span class="fu">#### Data Visualization</span></span>
+<span id="cb14-105"><a href="#cb14-105"></a></span>
+<span id="cb14-108"><a href="#cb14-108"></a><span class="in">```{r}</span></span>
+<span id="cb14-109"><a href="#cb14-109"></a><span class="co">#| warning: false</span></span>
+<span id="cb14-110"><a href="#cb14-110"></a><span class="do">### plot data</span></span>
+<span id="cb14-111"><a href="#cb14-111"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb14-112"><a href="#cb14-112"></a></span>
+<span id="cb14-113"><a href="#cb14-113"></a><span class="fu">ggplot</span>(dat, <span class="fu">aes</span>(<span class="at">x =</span> time, <span class="at">y =</span> yi, <span class="at">color =</span> <span class="fu">factor</span>(study), <span class="at">group =</span> study)) <span class="sc">+</span></span>
+<span id="cb14-114"><a href="#cb14-114"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span>  </span>
+<span id="cb14-115"><a href="#cb14-115"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span>  </span>
+<span id="cb14-116"><a href="#cb14-116"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Time Point"</span>, <span class="at">y =</span> <span class="st">"Mean Difference"</span>) <span class="sc">+</span></span>
+<span id="cb14-117"><a href="#cb14-117"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb14-118"><a href="#cb14-118"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb14-119"><a href="#cb14-119"></a>  <span class="fu">guides</span>(<span class="at">color =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb14-120"><a href="#cb14-120"></a><span class="in">```</span></span>
+<span id="cb14-121"><a href="#cb14-121"></a></span>
+<span id="cb14-122"><a href="#cb14-122"></a>Intuitively, this treatment roughly has a positive effect over the time, but not too obvious from the visualization.</span>
+<span id="cb14-123"><a href="#cb14-123"></a></span>
+<span id="cb14-124"><a href="#cb14-124"></a><span class="fu">#### Initial model</span></span>
+<span id="cb14-125"><a href="#cb14-125"></a></span>
+<span id="cb14-126"><a href="#cb14-126"></a>To be simple at the start, I picked the Bayesian linear regression model at the first attempt, because it's concise enough and considers all of the factors from the dataset. I can adjust my model based on the performance of this linear model.</span>
+<span id="cb14-127"><a href="#cb14-127"></a></span>
+<span id="cb14-128"><a href="#cb14-128"></a><span class="ss">-   </span>**Model**: $$\Delta y_{it}=\beta_0 + \beta_1*time + \beta_2*mdur_i+ \beta_3*mbase_i + b_i + \epsilon_{it}$$ $$b_i\sim\bf{N}(0,\sigma_b^2),\quad\epsilon\sim\bf{N}(0,\sigma^2)$$</span>
+<span id="cb14-129"><a href="#cb14-129"></a></span>
+<span id="cb14-130"><a href="#cb14-130"></a><span class="ss">-   </span>**Prior**: $$\beta_\_\sim\bf{N}(0,5),\quad\sigma_<span class="sc">\_</span>\sim\bf{C}(0,2)$$</span>
+<span id="cb14-131"><a href="#cb14-131"></a></span>
+<span id="cb14-132"><a href="#cb14-132"></a><span class="fu">#### Model Definition and Fitting</span></span>
+<span id="cb14-133"><a href="#cb14-133"></a></span>
+<span id="cb14-136"><a href="#cb14-136"></a><span class="in">```{r}</span></span>
+<span id="cb14-137"><a href="#cb14-137"></a><span class="co">#| message: false</span></span>
+<span id="cb14-138"><a href="#cb14-138"></a><span class="co">#| warning: false</span></span>
+<span id="cb14-139"><a href="#cb14-139"></a><span class="co">#| results: 'hide'</span></span>
+<span id="cb14-140"><a href="#cb14-140"></a><span class="co">#| eval: false</span></span>
+<span id="cb14-141"><a href="#cb14-141"></a>model_formula <span class="ot">&lt;-</span> <span class="fu">bf</span>(yi <span class="sc">~</span> time <span class="sc">+</span> mdur <span class="sc">+</span> mbase <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> study))</span>
+<span id="cb14-142"><a href="#cb14-142"></a></span>
+<span id="cb14-143"><a href="#cb14-143"></a>priors <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
+<span id="cb14-144"><a href="#cb14-144"></a>  <span class="fu">prior</span>(<span class="fu">normal</span>(<span class="dv">0</span>, <span class="dv">5</span>), <span class="at">class =</span> <span class="st">"b"</span>),</span>
+<span id="cb14-145"><a href="#cb14-145"></a>  <span class="fu">prior</span>(<span class="fu">cauchy</span>(<span class="dv">0</span>, <span class="dv">2</span>), <span class="at">class =</span> <span class="st">"sd"</span>)</span>
+<span id="cb14-146"><a href="#cb14-146"></a>)</span>
+<span id="cb14-147"><a href="#cb14-147"></a></span>
+<span id="cb14-148"><a href="#cb14-148"></a>fit <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
+<span id="cb14-149"><a href="#cb14-149"></a>  <span class="at">formula =</span> model_formula,</span>
+<span id="cb14-150"><a href="#cb14-150"></a>  <span class="at">data =</span> dat,</span>
+<span id="cb14-151"><a href="#cb14-151"></a>  <span class="at">family =</span> <span class="fu">gaussian</span>(),</span>
+<span id="cb14-152"><a href="#cb14-152"></a>  <span class="at">prior =</span> priors,</span>
+<span id="cb14-153"><a href="#cb14-153"></a>  <span class="at">chains =</span> <span class="dv">4</span>,</span>
+<span id="cb14-154"><a href="#cb14-154"></a>  <span class="at">iter =</span> <span class="dv">2000</span>,</span>
+<span id="cb14-155"><a href="#cb14-155"></a>  <span class="at">control =</span> <span class="fu">list</span>(<span class="at">adapt_delta =</span> <span class="fl">0.95</span>)</span>
+<span id="cb14-156"><a href="#cb14-156"></a>)</span>
+<span id="cb14-157"><a href="#cb14-157"></a><span class="in">```</span></span>
+<span id="cb14-158"><a href="#cb14-158"></a></span>
+<span id="cb14-159"><a href="#cb14-159"></a><span class="in">```{r model-summary, echo=FALSE, eval=FALSE}</span></span>
+<span id="cb14-160"><a href="#cb14-160"></a><span class="fu">summary</span>(fit)</span>
+<span id="cb14-161"><a href="#cb14-161"></a><span class="in">```</span></span>
+<span id="cb14-162"><a href="#cb14-162"></a></span>
+<span id="cb14-163"><a href="#cb14-163"></a><span class="fu">#### Observations and Problems</span></span>
+<span id="cb14-164"><a href="#cb14-164"></a></span>
+<span id="cb14-165"><a href="#cb14-165"></a><span class="ss">-   </span>Rhat of all the parameters is 1.00, and it seems that the Markov chains converged well enough.</span>
+<span id="cb14-166"><a href="#cb14-166"></a></span>
+<span id="cb14-167"><a href="#cb14-167"></a><span class="ss">-   </span>From the point estimate of time coefficient, it seems that this stimulation even has a slightly positive impact on patients' performance. Is it reliable? The CI of the time coefficient is <span class="sc">\[</span>-1.18,0.20<span class="sc">\]</span>, so it's hard to say and we need more evaluation methods to check the performance of this model but I'll pause here because it's just an attempt.</span>
+<span id="cb14-168"><a href="#cb14-168"></a></span>
+<span id="cb14-169"><a href="#cb14-169"></a><span class="ss">-   </span>mdur and mbase both have positive impacts on patients' performance improvement from this model's result.</span>
+<span id="cb14-170"><a href="#cb14-170"></a></span>
+<span id="cb14-171"><a href="#cb14-171"></a><span class="ss">-   </span>The linear Bayesian model and prior choices seem too casual, and I plan to discover some models which are more compatible with this problem.</span>
+<span id="cb14-172"><a href="#cb14-172"></a></span>
+<span id="cb14-173"><a href="#cb14-173"></a><span class="fu">### Week 2: Prior Choice</span></span>
+<span id="cb14-174"><a href="#cb14-174"></a></span>
+<span id="cb14-175"><a href="#cb14-175"></a><span class="fu">#### Goal</span></span>
+<span id="cb14-176"><a href="#cb14-176"></a></span>
+<span id="cb14-177"><a href="#cb14-177"></a>After this week, you should have:</span>
+<span id="cb14-178"><a href="#cb14-178"></a></span>
+<span id="cb14-179"><a href="#cb14-179"></a><span class="ss">-   </span>Proposed priors for each parameter in your model, with justification</span>
+<span id="cb14-180"><a href="#cb14-180"></a><span class="ss">-   </span>Performed a prior predictive check to ensure that your priors are reasonable</span>
+<span id="cb14-181"><a href="#cb14-181"></a></span>
+<span id="cb14-182"><a href="#cb14-182"></a><span class="fu">#### Proposed priors</span></span>
+<span id="cb14-183"><a href="#cb14-183"></a></span>
+<span id="cb14-184"><a href="#cb14-184"></a><span class="ss">-   </span>A correct prior choice should not be influenced by our dataset, so I will choose the priors based on common senses and some materials online.</span>
+<span id="cb14-185"><a href="#cb14-185"></a></span>
+<span id="cb14-186"><a href="#cb14-186"></a><span class="ss">-   </span>It's shown from the Internet that Deep-brain stimulation is a widely used treatment on Parkinson patients. Thus, we tend to believe that it has a positive effect on patients over the time and we prefer the mean of prior distribution of $\beta_1$ to be negative (when $\Delta y$ decreases, the performance is better than the baseline). I chose $\mathbf{N}(-1.0, 0.5^2)$ as the prior, distributing some possibilities that it doesn't have significant effect or even negative effects.</span>
+<span id="cb14-187"><a href="#cb14-187"></a></span>
+<span id="cb14-188"><a href="#cb14-188"></a><span class="ss">-   </span>Higher disease duration and higher baseline UPDRS scores imply that the diseases are more severe, and it tend to be easier to get a higher improvement from the baseline. However, there are also some cases that the diseases are too severe to achieve an improvement, so for $\beta_2$ and $\beta_3$ I chose $\mathbf{N}(-0.5, 0.5^2)$ as priors.</span>
+<span id="cb14-189"><a href="#cb14-189"></a></span>
+<span id="cb14-190"><a href="#cb14-190"></a><span class="ss">-   </span>For intercept $\beta_0$, I actually have no ideas what it would be like. So I would choose $\mathbf{N}(0, 10^2)$ as the prior.</span>
+<span id="cb14-191"><a href="#cb14-191"></a></span>
+<span id="cb14-192"><a href="#cb14-192"></a><span class="ss">-   </span>Priors of the error term still keep this form: $\quad\sigma\sim\mathbf{C}(0,2)$</span>
+<span id="cb14-193"><a href="#cb14-193"></a></span>
+<span id="cb14-194"><a href="#cb14-194"></a><span class="fu">#### New Priors in brms and Prior Predictive Check</span></span>
+<span id="cb14-195"><a href="#cb14-195"></a></span>
+<span id="cb14-198"><a href="#cb14-198"></a><span class="in">```{r}</span></span>
+<span id="cb14-199"><a href="#cb14-199"></a><span class="co">#| message: false</span></span>
+<span id="cb14-200"><a href="#cb14-200"></a><span class="co">#| warning: false</span></span>
+<span id="cb14-201"><a href="#cb14-201"></a><span class="co">#| results: 'hide'</span></span>
+<span id="cb14-202"><a href="#cb14-202"></a>model_formula <span class="ot">&lt;-</span> <span class="fu">bf</span>(yi <span class="sc">~</span> time <span class="sc">+</span> mdur <span class="sc">+</span> mbase <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> study))</span>
+<span id="cb14-203"><a href="#cb14-203"></a></span>
+<span id="cb14-204"><a href="#cb14-204"></a>priors <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
+<span id="cb14-205"><a href="#cb14-205"></a>  <span class="fu">prior</span>(<span class="fu">normal</span>(<span class="sc">-</span><span class="fl">1.0</span>, <span class="fl">0.5</span>), <span class="at">class =</span> <span class="st">"b"</span>, <span class="at">coef =</span> <span class="st">"time"</span>),</span>
+<span id="cb14-206"><a href="#cb14-206"></a>  <span class="fu">prior</span>(<span class="fu">normal</span>(<span class="sc">-</span><span class="fl">0.5</span>, <span class="fl">0.5</span>), <span class="at">class =</span> <span class="st">"b"</span>, <span class="at">coef =</span> <span class="st">"mdur"</span>),</span>
+<span id="cb14-207"><a href="#cb14-207"></a>  <span class="fu">prior</span>(<span class="fu">normal</span>(<span class="sc">-</span><span class="fl">0.5</span>, <span class="fl">0.5</span>), <span class="at">class =</span> <span class="st">"b"</span>, <span class="at">coef =</span> <span class="st">"mbase"</span>),</span>
+<span id="cb14-208"><a href="#cb14-208"></a>  <span class="fu">prior</span>(<span class="fu">normal</span>(<span class="dv">0</span>, <span class="dv">10</span>), <span class="at">class =</span> <span class="st">"Intercept"</span>),</span>
+<span id="cb14-209"><a href="#cb14-209"></a>  <span class="fu">prior</span>(<span class="fu">cauchy</span>(<span class="dv">0</span>, <span class="dv">2</span>), <span class="at">class =</span> <span class="st">"sd"</span>)</span>
+<span id="cb14-210"><a href="#cb14-210"></a>)</span>
+<span id="cb14-211"><a href="#cb14-211"></a></span>
+<span id="cb14-212"><a href="#cb14-212"></a>fit <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
+<span id="cb14-213"><a href="#cb14-213"></a>  <span class="at">formula =</span> model_formula,</span>
+<span id="cb14-214"><a href="#cb14-214"></a>  <span class="at">data =</span> dat,</span>
+<span id="cb14-215"><a href="#cb14-215"></a>  <span class="at">family =</span> <span class="fu">gaussian</span>(),</span>
+<span id="cb14-216"><a href="#cb14-216"></a>  <span class="at">prior =</span> priors,</span>
+<span id="cb14-217"><a href="#cb14-217"></a>  <span class="at">sample_prior =</span> <span class="st">"only"</span>,</span>
+<span id="cb14-218"><a href="#cb14-218"></a>  <span class="at">chains =</span> <span class="dv">4</span>,</span>
+<span id="cb14-219"><a href="#cb14-219"></a>  <span class="at">iter =</span> <span class="dv">2000</span>,</span>
+<span id="cb14-220"><a href="#cb14-220"></a>  <span class="at">control =</span> <span class="fu">list</span>(<span class="at">adapt_delta =</span> <span class="fl">0.95</span>)</span>
+<span id="cb14-221"><a href="#cb14-221"></a>)</span>
+<span id="cb14-222"><a href="#cb14-222"></a><span class="in">```</span></span>
+<span id="cb14-223"><a href="#cb14-223"></a></span>
+<span id="cb14-224"><a href="#cb14-224"></a><span class="in">```{r echo=FALSE}</span></span>
+<span id="cb14-225"><a href="#cb14-225"></a><span class="fu">summary</span>(fit)</span>
+<span id="cb14-226"><a href="#cb14-226"></a>prior_samples <span class="ot">&lt;-</span> <span class="fu">posterior_samples</span>(fit)</span>
+<span id="cb14-227"><a href="#cb14-227"></a><span class="fu">hist</span>(prior_samples<span class="sc">$</span>b_time, <span class="at">main =</span> <span class="st">"time"</span>, <span class="at">xlab =</span> <span class="st">"time"</span>, <span class="at">breaks =</span> <span class="dv">30</span>)</span>
+<span id="cb14-228"><a href="#cb14-228"></a><span class="fu">hist</span>(prior_samples<span class="sc">$</span>b_mdur, <span class="at">main =</span> <span class="st">"mdur"</span>, <span class="at">xlab =</span> <span class="st">"mdur"</span>, <span class="at">breaks =</span> <span class="dv">30</span>)</span>
+<span id="cb14-229"><a href="#cb14-229"></a><span class="fu">hist</span>(prior_samples<span class="sc">$</span>b_mbase, <span class="at">main =</span> <span class="st">"mbase"</span>, <span class="at">xlab =</span> <span class="st">"mbase"</span>, <span class="at">breaks =</span> <span class="dv">30</span>)</span>
+<span id="cb14-230"><a href="#cb14-230"></a><span class="fu">hist</span>(prior_samples<span class="sc">$</span>b_Intercept, <span class="at">main =</span> <span class="st">"b_intercept"</span>, <span class="at">xlab =</span> <span class="st">"b_intercept"</span>, <span class="at">breaks =</span> <span class="dv">30</span>)</span>
+<span id="cb14-231"><a href="#cb14-231"></a><span class="fu">hist</span>(prior_samples<span class="sc">$</span>Intercept, <span class="at">main =</span> <span class="st">"intercept"</span>, <span class="at">xlab =</span> <span class="st">"intercept"</span>, <span class="at">breaks =</span> <span class="dv">30</span>)</span>
+<span id="cb14-232"><a href="#cb14-232"></a><span class="fu">hist</span>(prior_samples<span class="sc">$</span>sd, <span class="at">main =</span> <span class="st">"sd"</span>, <span class="at">xlab =</span> <span class="st">"sd"</span>, <span class="at">breaks =</span> <span class="dv">100</span>)</span>
+<span id="cb14-233"><a href="#cb14-233"></a><span class="in">```</span></span>
+<span id="cb14-234"><a href="#cb14-234"></a></span>
+<span id="cb14-235"><a href="#cb14-235"></a><span class="fu">### Week 3: Model Fitting and Checking</span></span>
+<span id="cb14-236"><a href="#cb14-236"></a></span>
+<span id="cb14-237"><a href="#cb14-237"></a><span class="fu">#### Goal</span></span>
+<span id="cb14-238"><a href="#cb14-238"></a></span>
+<span id="cb14-239"><a href="#cb14-239"></a>After this week, you should have:</span>
+<span id="cb14-240"><a href="#cb14-240"></a></span>
+<span id="cb14-241"><a href="#cb14-241"></a><span class="ss">-   </span>Fitted your model with chosen priors to your data</span>
+<span id="cb14-242"><a href="#cb14-242"></a><span class="ss">-   </span>Performed diagnostic checks for quality/stability of fitting</span>
+<span id="cb14-243"><a href="#cb14-243"></a><span class="ss">-   </span>Performed prior sensitivity assessment</span>
+<span id="cb14-244"><a href="#cb14-244"></a><span class="ss">-   </span>Performed predictive performance assessment</span>
+<span id="cb14-245"><a href="#cb14-245"></a></span>
+<span id="cb14-246"><a href="#cb14-246"></a><span class="fu">#### Code and Results</span></span>
+<span id="cb14-247"><a href="#cb14-247"></a></span>
+<span id="cb14-250"><a href="#cb14-250"></a><span class="in">```{r}</span></span>
+<span id="cb14-251"><a href="#cb14-251"></a><span class="co"># Your code here</span></span>
+<span id="cb14-252"><a href="#cb14-252"></a><span class="in">```</span></span>
+<span id="cb14-253"><a href="#cb14-253"></a></span>
+<span id="cb14-254"><a href="#cb14-254"></a><span class="fu">### Week 4: Extending Models and Model Selection</span></span>
+<span id="cb14-255"><a href="#cb14-255"></a></span>
+<span id="cb14-256"><a href="#cb14-256"></a><span class="fu">#### Goal</span></span>
+<span id="cb14-257"><a href="#cb14-257"></a></span>
+<span id="cb14-258"><a href="#cb14-258"></a>After this week, you should have:</span>
+<span id="cb14-259"><a href="#cb14-259"></a></span>
+<span id="cb14-260"><a href="#cb14-260"></a><span class="ss">-   </span>Decided on whether a model expansion or selection approach is relevant for your research question, with justification</span>
+<span id="cb14-261"><a href="#cb14-261"></a><span class="ss">-   </span>Proposed a second model (or an expansion to the first), building on the issues/diagnostics/concepts from previous weeks</span>
+<span id="cb14-262"><a href="#cb14-262"></a></span>
+<span id="cb14-263"><a href="#cb14-263"></a><span class="fu">#### Code and Results</span></span>
+<span id="cb14-264"><a href="#cb14-264"></a></span>
+<span id="cb14-267"><a href="#cb14-267"></a><span class="in">```{r}</span></span>
+<span id="cb14-268"><a href="#cb14-268"></a><span class="co"># Your code here</span></span>
+<span id="cb14-269"><a href="#cb14-269"></a><span class="in">```</span></span>
+<span id="cb14-270"><a href="#cb14-270"></a></span>
+<span id="cb14-271"><a href="#cb14-271"></a><span class="fu">### Week 5: Interpreting and Presenting Model Results</span></span>
+<span id="cb14-272"><a href="#cb14-272"></a></span>
+<span id="cb14-273"><a href="#cb14-273"></a><span class="fu">#### Goal</span></span>
+<span id="cb14-274"><a href="#cb14-274"></a></span>
+<span id="cb14-275"><a href="#cb14-275"></a>After this week, you should have:</span>
+<span id="cb14-276"><a href="#cb14-276"></a></span>
+<span id="cb14-277"><a href="#cb14-277"></a><span class="ss">-   </span>Prepared a concise summary of your results and how they answer your research question</span>
+<span id="cb14-278"><a href="#cb14-278"></a><span class="ss">-   </span>Prepared a visualisation of your results that is suitable for presentation to a non-technical audience</span>
+<span id="cb14-279"><a href="#cb14-279"></a></span>
+<span id="cb14-280"><a href="#cb14-280"></a><span class="fu">#### Code and Results</span></span>
+<span id="cb14-281"><a href="#cb14-281"></a></span>
+<span id="cb14-284"><a href="#cb14-284"></a><span class="in">```{r}</span></span>
+<span id="cb14-285"><a href="#cb14-285"></a><span class="co"># Your code here</span></span>
+<span id="cb14-286"><a href="#cb14-286"></a><span class="in">```</span></span>
+<span id="cb14-287"><a href="#cb14-287"></a></span>
+<span id="cb14-288"><a href="#cb14-288"></a><span class="fu">### Week 6: Final Notebook</span></span>
+<span id="cb14-289"><a href="#cb14-289"></a></span>
+<span id="cb14-290"><a href="#cb14-290"></a><span class="fu">#### Goal</span></span>
+<span id="cb14-291"><a href="#cb14-291"></a></span>
+<span id="cb14-292"><a href="#cb14-292"></a>After this week, you should have:</span>
+<span id="cb14-293"><a href="#cb14-293"></a></span>
+<span id="cb14-294"><a href="#cb14-294"></a><span class="ss">-   </span>Prepared a separate notebook summarising your analysis and results in the form of a case study</span>
+<span id="cb14-295"><a href="#cb14-295"></a><span class="ss">    -   </span>Be sure to use the case studies provided in this course to guide you</span>
 </code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
