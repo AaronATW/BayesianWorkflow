@@ -10,6 +10,13 @@ format:
     number-sections: true
     mainfont: Calibri, serif
     page-layout: article
+  pdf:  
+    geometry:
+    - left=1cm,top=1cm,bottom=1cm,right=1cm
+    number-sections: true
+    code-annotations: none
+    pagestyle: plain
+editor: source
 ---
 
 ```{r}
@@ -42,6 +49,8 @@ library(knitr)
 library(kableExtra)
 library(metadat)
 library(metafor)
+library(priorsense)
+library(testthat)
 # Globally specfiy cmdstan backend for brms
 options(brms.backend="cmdstanr")
 # Tell brms to cache results if possible
@@ -117,9 +126,9 @@ Intuitively, this treatment roughly has a positive effect over the time, but not
 
 To be simple at the start, I picked the Bayesian linear regression model at the first attempt, because it's concise enough and considers all of the factors from the dataset. I can adjust my model based on the performance of this linear model.
 
--   **Model**: $$\Delta y_{it}=\beta_0 + \beta_1*time + \beta_2*mdur_i+ \beta_3*mbase_i + b_i + \epsilon_{it}$$ $$b_i\sim\bf{N}(0,\sigma_b^2),\quad\epsilon\sim\bf{N}(0,\sigma^2)$$
+-   **Model**: $$\Delta y_{it}=\beta_0 + \beta_1*time + \beta_2*mdur_i+ \beta_3*mbase_i + b_i + \epsilon_{it}$$ $$b_i\sim\mathbf{N}(0,\sigma_b^2),\quad\epsilon\sim\mathbf{N}(0,\sigma^2)$$
 
--   **Prior**: $$\beta_\_\sim\bf{N}(0,5),\quad\sigma_\_\sim\bf{C}(0,2)$$
+-   **Prior**: $$\beta_\_\sim\mathbf{N}(0,5),\quad\sigma_\_\sim\mathbf{C}(0,2)$$
 
 #### Model Definition and Fitting
 
@@ -177,9 +186,9 @@ After this week, you should have:
 
 -   Higher disease duration and higher baseline UPDRS scores imply that the diseases are more severe, and it tend to be easier to get a higher improvement from the baseline. However, there are also some cases that the diseases are too severe to achieve an improvement, so for $\beta_2$ and $\beta_3$ I chose $\mathbf{N}(-0.5, 0.5^2)$ as priors.
 
--   For intercept $\beta_0$, I actually have no ideas what it would be like. So I would choose $\mathbf{N}(0, 10^2)$ as the prior.
+-   For intercept $\beta_0$, I know usually there will be improvements. So I would choose $\mathbf{N}(-10, 10^2)$ as the prior.
 
--   Priors of the error term still keep this form: $\quad\sigma\sim\mathbf{C}(0,2)$
+-   The prior of the error term : $\quad\sigma\sim\mathbf{Exp}(0.02)$
 
 #### New Priors in brms and Prior Predictive Check
 
@@ -193,8 +202,8 @@ priors <- c(
   prior(normal(-1.0, 0.5), class = "b", coef = "time"),
   prior(normal(-0.5, 0.5), class = "b", coef = "mdur"),
   prior(normal(-0.5, 0.5), class = "b", coef = "mbase"),
-  prior(normal(0, 10), class = "Intercept"),
-  prior(cauchy(0, 2), class = "sd")
+  prior(normal(-10, 10), class = "Intercept"),
+  prior(exponential(0.02), class = "sd")
 )
 
 fit <- brm(
@@ -209,16 +218,20 @@ fit <- brm(
 )
 ```
 
-```{r echo=FALSE}
-summary(fit)
+```{r}
 prior_samples <- posterior_samples(fit)
+par(mfrow=c(3,2))
 hist(prior_samples$b_time, main = "time", xlab = "time", breaks = 30)
 hist(prior_samples$b_mdur, main = "mdur", xlab = "mdur", breaks = 30)
 hist(prior_samples$b_mbase, main = "mbase", xlab = "mbase", breaks = 30)
 hist(prior_samples$b_Intercept, main = "b_intercept", xlab = "b_intercept", breaks = 30)
 hist(prior_samples$Intercept, main = "intercept", xlab = "intercept", breaks = 30)
-hist(prior_samples$sd, main = "sd", xlab = "sd", breaks = 100)
+hist(prior_samples$sd, main = "sd", xlab = "sd", breaks = 30)
+par(mfrow=c(1,1))
+pp_check(fit, ndraws = 2000)
 ```
+
+From the plots, we can see that the prior predictions tend to overestimate $y$, and the predictions are more concentrated on smaller intervals.
 
 ### Week 3: Model Fitting and Checking
 
@@ -231,11 +244,84 @@ After this week, you should have:
 -   Performed prior sensitivity assessment
 -   Performed predictive performance assessment
 
-#### Code and Results
+#### Parameter Estimates and Model Fit Check
 
 ```{r}
-# Your code here
+#| message: false
+#| warning: false
+#| results: 'hide'
+fit <- brm(
+  formula = model_formula,
+  data = dat,
+  family = gaussian(),
+  prior = priors,
+  chains = 4,
+  iter = 2000,
+  control = list(adapt_delta = 0.95)
+)
 ```
+
+```{r}
+summary(fit)
+post_samples <- posterior_samples(fit)
+par(mfrow=c(3,2))
+hist(post_samples$b_time, main = "time", xlab = "time", breaks = 30)
+hist(post_samples$b_mdur, main = "mdur", xlab = "mdur", breaks = 30)
+hist(post_samples$b_mbase, main = "mbase", xlab = "mbase", breaks = 30)
+hist(post_samples$b_Intercept, main = "b_intercept", xlab = "b_intercept", breaks = 30)
+hist(post_samples$Intercept, main = "intercept", xlab = "intercept", breaks = 30)
+hist(post_samples$sd, main = "sigma", xlab = "sigma", breaks = 30)
+par(mfrow=c(1,1))
+```
+
+From the results of the model fitting, we have these conclusions:
+
+-   All of the parameters are converging well in the Markov chains, because Rhat are all $1.00$.
+
+-   Time, mdur, mbase all have negative impacts on $y$, which implies that this treatment tend to help alleviate the disease over the time, and the effects are more significant when the baseline is more severe.
+
+-   These conclusions make sense to some extents, because the posterior intervals are consistent with our assumptions from the prior.
+
+#### Posterior predictive checks
+
+```{r}
+pp_check(fit, ndraws = 2000)
+post_pred <- posterior_predict(fit, ndraws = length(dat$yi))
+color_scheme_set("blue")
+ppc_intervals(
+  y = dat$yi,
+  yrep = t(post_pred),
+  x = dat$rownames,
+  prob = 0.5
+) +
+  labs(
+    x = "Data point",
+    y = "Observed difference",
+    title = "PPC: 50% intervals",
+  ) +
+  panel_bg(fill = "gray95", color = NA) +
+  grid_lines(color = "white")
+```
+- From the distribution of $y_{rep}$, we can see that they are approximately close to $y$, but it seems that there are still some convergences, indicating that our model is too simple and inaccurate.
+
+- From the $50%$ interval plot, we can see that most of the data points are falling into the $50%$ intervals, but there are still some outlying points, and less points are falling into the inner intervals.
+
+#### Influence and sensitivity checks
+
+```{r}
+loo_check <- loo(fit, cores = 2)
+print(loo_check)
+plot(loo_check, label_points = TRUE, main = "Pareto-k values - bayesian linear model")
+```
+The PSIS-LOO plot shows that our posterior rely on some certain data points too much, because many of them are over 0.7, indicating some overfitting issues.
+
+```{r}
+powerscale_sensitivity(fit)
+powerscale_plot_dens(fit, variable = c("b_time", "b_mdur", "b_mbase", "sigma"))
+```
+- The power-scaling sensitivity plot shows that all of our parameters do not rely on the prior assumption too much. It means that our model is robust from this perspective. 
+
+- An exception is that the posterior are very sensitive to the likelihood of $\sigma$, which might be a issue. The pareto k value of a much lower power scaling of likelihood is quite high, and it indicates some inaccuracy with it.
 
 ### Week 4: Extending Models and Model Selection
 
