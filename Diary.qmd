@@ -80,6 +80,7 @@ dat <- dat[order(study, time),]
 
 ### remove missing measurement occasions from dat.long
 dat <- dat[!is.na(yi),]
+dat$study <- as.integer(as.factor(dat$study))
 rownames(dat) <- NULL
 head(dat, 10)
 ```
@@ -182,9 +183,9 @@ After this week, you should have:
 
 -   A correct prior choice should not be influenced by our dataset, so I will choose the priors based on common senses and some materials online.
 
--   It's shown from the Internet that Deep-brain stimulation is a widely used treatment on Parkinson patients. Thus, we tend to believe that it has a positive effect on patients over the time and we prefer the mean of prior distribution of $\beta_1$ to be negative (when $\Delta y$ decreases, the performance is better than the baseline). I chose $\mathbf{N}(-1.0, 0.5^2)$ as the prior, distributing some possibilities that it doesn't have significant effect or even negative effects.
+-   It's shown from the Internet that Deep-brain stimulation is a widely used treatment on Parkinson patients. Thus, we tend to believe that it has a positive effect on patients over the time and we prefer the mean of prior distribution of $\beta_1$ to be negative (when $\Delta y$ decreases, the performance is better than the baseline). I chose $\mathbf{N}(1.0, 0.5^2)$ as the prior, distributing some possibilities that it doesn't have significant effect or even negative effects.
 
--   Higher disease duration and higher baseline UPDRS scores imply that the diseases are more severe, and it tend to be easier to get a higher improvement from the baseline. However, there are also some cases that the diseases are too severe to achieve an improvement, so for $\beta_2$ and $\beta_3$ I chose $\mathbf{N}(-0.5, 0.5^2)$ as priors.
+-   Higher disease duration and higher baseline UPDRS scores imply that the diseases are more severe, and it tend to be easier to get a higher improvement from the baseline. However, there are also some cases that the diseases are too severe to achieve an improvement, so for $\beta_2$ and $\beta_3$ I chose $\mathbf{N}(0.5, 0.5^2)$ as priors.
 
 -   For intercept $\beta_0$, I know usually there will be improvements. So I would choose $\mathbf{N}(-10, 10^2)$ as the prior.
 
@@ -199,9 +200,9 @@ After this week, you should have:
 model_formula <- bf(yi ~ time + mdur + mbase + (1 | study))
 
 priors <- c(
-  prior(normal(-1.0, 0.5), class = "b", coef = "time"),
-  prior(normal(-0.5, 0.5), class = "b", coef = "mdur"),
-  prior(normal(-0.5, 0.5), class = "b", coef = "mbase"),
+  prior(normal(1.0, 0.5), class = "b", coef = "time"),
+  prior(normal(0.5, 0.5), class = "b", coef = "mdur"),
+  prior(normal(0.5, 0.5), class = "b", coef = "mbase"),
   prior(normal(-10, 10), class = "Intercept"),
   prior(exponential(0.02), class = "sd")
 )
@@ -228,10 +229,12 @@ hist(prior_samples$b_Intercept, main = "b_intercept", xlab = "b_intercept", brea
 hist(prior_samples$Intercept, main = "intercept", xlab = "intercept", breaks = 30)
 hist(prior_samples$sd, main = "sd", xlab = "sd", breaks = 30)
 par(mfrow=c(1,1))
-pp_check(fit, ndraws = 2000)
+pp_check(fit, ndraws = 200)
 ```
 
-From the plots, we can see that the prior predictions tend to overestimate $y$, and the predictions are more concentrated on smaller intervals.
+#### Discussion on Prior Predictive Check for Prior Choices
+
+From the plots, we can see that the prior predictions tend to overestimate $y$, and the predictions are more concentrated on smaller intervals. This check had the influence on the prior choice of intercept and sd term. Previously, intercept's prior distribution's mean value was zero, which makes $y_{rep}$ have a large deviation to the training data. I also adjusted the parameter of the exponential distribution to avoid inappropriately narrow distribution of prior predictive data.
 
 ### Week 3: Model Fitting and Checking
 
@@ -302,9 +305,10 @@ ppc_intervals(
   panel_bg(fill = "gray95", color = NA) +
   grid_lines(color = "white")
 ```
-- From the distribution of $y_{rep}$, we can see that they are approximately close to $y$, but it seems that there are still some convergences, indicating that our model is too simple and inaccurate.
 
-- From the $50%$ interval plot, we can see that most of the data points are falling into the $50%$ intervals, but there are still some outlying points, and less points are falling into the inner intervals.
+-   From the distribution of $y_{rep}$, we can see that they are approximately close to $y$, but it seems that there are still some convergences, indicating that our model is too simple and inaccurate.
+
+-   From the $50%$ interval plot, we can see that most of the data points are falling into the $50%$ intervals, but there are still some outlying points, and less points are falling into the inner intervals.
 
 #### Influence and sensitivity checks
 
@@ -313,15 +317,17 @@ loo_check <- loo(fit, cores = 2)
 print(loo_check)
 plot(loo_check, label_points = TRUE, main = "Pareto-k values - bayesian linear model")
 ```
+
 The PSIS-LOO plot shows that our posterior rely on some certain data points too much, because many of them are over 0.7, indicating some overfitting issues.
 
 ```{r}
 powerscale_sensitivity(fit)
 powerscale_plot_dens(fit, variable = c("b_time", "b_mdur", "b_mbase", "sigma"))
 ```
-- The power-scaling sensitivity plot shows that all of our parameters do not rely on the prior assumption too much. It means that our model is robust from this perspective. 
 
-- An exception is that the posterior are very sensitive to the likelihood of $\sigma$, which might be a issue. The pareto k value of a much lower power scaling of likelihood is quite high, and it indicates some inaccuracy with it.
+-   The power-scaling sensitivity plot shows that all of our parameters do not rely on the prior assumption too much. It means that our model is robust from this perspective.
+
+-   An exception is that the posterior are very sensitive to the likelihood of $\sigma$, which might be a issue. The pareto k value of a much lower power scaling of likelihood is quite high, and it indicates some inaccuracy with it.
 
 ### Week 4: Extending Models and Model Selection
 
@@ -332,11 +338,163 @@ After this week, you should have:
 -   Decided on whether a model expansion or selection approach is relevant for your research question, with justification
 -   Proposed a second model (or an expansion to the first), building on the issues/diagnostics/concepts from previous weeks
 
-#### Code and Results
+#### Idea of Model Extension
+
+This extension is from the idea of introducing smooth function to all of the variables, allowing for more complex and non-linear structure of our model. We provided two types of this extension, one is from Gaussian family and another one is from Student family. We will give model evaluation and comparisons to select the best model we use.
+
+#### Model Fitting
 
 ```{r}
-# Your code here
+#| message: false
+#| warning: false
+#| results: 'hide'
+
+library(mgcv)
+model_formula <- bf(yi ~ s(time, k=4) + s(mdur) + s(mbase) + (1|study))
+
+priors <- c(
+  set_prior("normal(1.0, 0.5)", class = "b", coef = "smbase_1"),
+  set_prior("normal(1.0, 0.5)", class = "b", coef = "smdur_1"),
+  set_prior("normal(1.0, 0.5)", class = "b", coef = "stime_1"),
+  set_prior("normal(-10, 10)", class = "Intercept"),
+  set_prior("exponential(0.02)", class = "sd"),
+  set_prior("exponential(0.02)", class = "sd", group = "study"),
+  set_prior("exponential(0.02)", class = "sd", coef = "Intercept", group = "study"),
+  set_prior("exponential(0.02)", class = "sds"),
+  set_prior("exponential(0.02)", class = "sds", coef = "s(mbase)"),
+  set_prior("exponential(0.02)", class = "sds", coef = "s(mdur)"),
+  set_prior("exponential(0.02)", class = "sds", coef = "s(time, k = 4)"),
+  set_prior("exponential(0.02)", class = "sigma")
+)
+
+fit_new <- brm(
+  formula = model_formula,
+  data = dat,
+  family = gaussian(),
+  prior = priors,
+  chains = 4,
+  iter = 2000,
+  control = list(adapt_delta = 0.95)
+)
+
+fit_new_2 <- brm(
+  formula = model_formula,
+  data = dat,
+  family = student(),
+  prior = priors,
+  chains = 4,
+  iter = 2000,
+  control = list(adapt_delta = 0.95)
+)
+
+
 ```
+
+#### Fitting Results
+
+```{r}
+summary(fit_new)
+post_samples <- posterior_samples(fit_new)
+par(mfrow = c(3,3))
+hist(post_samples$`bs_stime_1`, main = "stime_1", xlab = "stime_1", breaks = 30)
+hist(post_samples$`bs_smdur_1`, main = "smdur_1", xlab = "smdur_1", breaks = 30)
+hist(post_samples$`bs_smbase_1`, main = "smbase_1", xlab = "smbase_1", breaks = 30)
+hist(post_samples$`b_Intercept`, main = "b_intercept", xlab = "b_intercept", breaks = 30)
+hist(post_samples$`Intercept`, main = "intercept", xlab = "intercept", breaks = 30)
+hist(post_samples$`sigma`, main = "sigma", xlab = "sigma", breaks = 30)
+hist(post_samples$`sd_study__Intercept`, main = "sd_study__Intercept", xlab = "sd_study__Intercept", breaks = 30)
+par(mfrow = c(1, 1))
+
+
+summary(fit_new_2)
+post_samples <- posterior_samples(fit_new_2)
+par(mfrow = c(3,3))
+hist(post_samples$`bs_stime_1`, main = "stime_1", xlab = "stime_1", breaks = 30)
+hist(post_samples$`bs_smdur_1`, main = "smdur_1", xlab = "smdur_1", breaks = 30)
+hist(post_samples$`bs_smbase_1`, main = "smbase_1", xlab = "smbase_1", breaks = 30)
+hist(post_samples$`b_Intercept`, main = "b_intercept", xlab = "b_intercept", breaks = 30)
+hist(post_samples$`Intercept`, main = "intercept", xlab = "intercept", breaks = 30)
+hist(post_samples$`sigma`, main = "sigma", xlab = "sigma", breaks = 30)
+hist(post_samples$`sd_study__Intercept`, main = "sd_study__Intercept", xlab = "sd_study__Intercept", breaks = 30)
+par(mfrow = c(1, 1))
+```
+
+#### Posterior Predictive Check
+
+```{r}
+par(mfrow = c(2,2))
+pp_check(fit_new, ndraws = 100)
+post_pred <- posterior_predict(fit_new, ndraws = length(dat$yi))
+color_scheme_set("blue")
+ppc_intervals(
+  y = dat$yi,
+  yrep = t(post_pred),
+  x = dat$rownames,
+  prob = 0.5
+) +
+  labs(
+    x = "Data point",
+    y = "Observed difference",
+    title = "PPC: 50% intervals (gaussian - GAM)",
+  ) +
+  panel_bg(fill = "gray95", color = NA) +
+  grid_lines(color = "white")
+
+pp_check(fit_new_2, ndraws = 100)
+post_pred <- posterior_predict(fit_new_2, ndraws = length(dat$yi))
+color_scheme_set("blue")
+ppc_intervals(
+  y = dat$yi,
+  yrep = t(post_pred),
+  x = dat$rownames,
+  prob = 0.5
+) +
+  labs(
+    x = "Data point",
+    y = "Observed difference",
+    title = "PPC: 50% intervals (student - GAM)",
+  ) +
+  panel_bg(fill = "gray95", color = NA) +
+  grid_lines(color = "white")
+par(mfrow = c(1,1))
+```
+
+#### Prior Sensitivity Check
+
+```{r}
+powerscale_sensitivity(fit_new)
+powerscale_sensitivity(fit_new_2)
+powerscale_plot_dens(fit_new, variable = c("bs_stime_1", "bs_smdur_1", "bs_smbase_1", "sigma"))
+powerscale_plot_dens(fit_new_2, variable = c("bs_stime_1", "bs_smdur_1", "bs_smbase_1", "sigma"))
+```
+
+#### Model Comparison
+
+```{r}
+loo_check_new <- loo(fit_new, cores = 2)
+loo_check_new_2 <- loo(fit_new_2, cores = 2)
+plot(loo_check_new, label_points = TRUE, main = "Pareto-k values - gaussian GAM")
+plot(loo_check_new_2, label_points = TRUE, main = "Pareto-k values - student GAM")
+loo_comparison <- loo_compare(loo_check, loo_check_new, loo_check_new_2)
+model_aliases <- c(
+  "fit_new" = "Gaussian GAM",
+  "fit_new_2" = "Student GAM",
+  "fit" = "Linear"
+)
+loo_comparison_df <- as.data.frame(loo_comparison)
+loo_comparison_df$model <- rownames(loo_comparison_df)
+rownames(loo_comparison_df) <- NULL
+loo_comparison_df <- loo_comparison_df %>%
+  mutate(model = recode(model, !!!model_aliases))
+loo_comparison_df <- loo_comparison_df %>%
+  mutate(across(where(is.numeric), ~ round(., 2)))
+loo_comparison_df <- loo_comparison_df[, c("model", "elpd_diff", "se_diff")]
+kable(loo_comparison_df, col.names = c("Model", "ELPD Diff", "SE Diff"), caption = "LOO Comparison Results")
+```
+
+#### Model Selection
+
+From the LOO comparison result, we used the prediction method to select the best model we provided. This form shows that the Gaussian GAM model has a significant better prediction ability than the other two. Therefore, we chose this model as our final prediction model.
 
 ### Week 5: Interpreting and Presenting Model Results
 
@@ -347,11 +505,107 @@ After this week, you should have:
 -   Prepared a concise summary of your results and how they answer your research question
 -   Prepared a visualisation of your results that is suitable for presentation to a non-technical audience
 
-#### Code and Results
+#### Introduction (Informal Case Study)
+
+(In this part, we assume that we are presenting our result informally to people who are curious about this treatment for Parkinson's disease. We will briefly show what our conclusion is with some brief and clear visualizations).
+
+With the experiment data from 46 studies examining the effects of deep-brain stimulation, we conduct an analysis about whether this treatment have effect and what effect it has on patients. What's more, we also researched on the effect of disease duration and mean baseline UPDRS scores on the effect of treatment over the time.
+
+#### Visualization and Interpretation
 
 ```{r}
-# Your code here
+library(brms)
+library(ggplot2)
+library(dplyr)
+
+max_study <- max(dat$study)
+mdur_values <- c(10, 15, 20)
+all_results <- data.frame()
+
+for (mdur in mdur_values) {
+  new_data <- data.frame(
+    time = seq(0.25, 5, by = 0.25),
+    mdur = rep(mdur, length.out = length(seq(0.25, 5, by = 0.25))),
+    mbase = rep(50, length.out = length(seq(0.25, 5, by = 0.25))),
+    study = rep(max_study + 1, length.out = length(seq(0.25, 5, by = 0.25)))
+  )
+  
+  predictions <- posterior_epred(fit_new, newdata = new_data, re_formula = NA)
+  
+  pred_summary <- apply(predictions, 2, function(x) {
+    c(mean = mean(x), lower = quantile(x, 0.25), upper = quantile(x, 0.75))
+  })
+  
+  pred_summary_df <- as.data.frame(t(pred_summary))
+  colnames(pred_summary_df) <- c("mean", "lower", "upper")
+  
+  result <- cbind(new_data, pred_summary_df)
+  result$combination <- paste("mdur =", mdur)
+  
+  all_results <- rbind(all_results, result)
+}
+
+ggplot(all_results, aes(x = time, y = mean, color = combination)) +
+  geom_line(size = 1.5) +
+  geom_ribbon(aes(ymin = lower, ymax = upper, fill = combination), alpha = 0.05, show.legend = FALSE) +
+  geom_line(aes(y = lower), linetype = "dashed", size = 0.5) +
+  geom_line(aes(y = upper), linetype = "dashed", size = 0.5) +
+  labs(title = "Predicted Values with 50% Credible Intervals for Different mdur Values (mbase=50)",
+       x = "Time",
+       y = "Predicted yi") +
+  theme_minimal() +
+  scale_color_discrete(name = "mdur Combination")
+
+mdur_fixed <- 15
+mbase_values <- c(40, 50, 60)
+all_results_mbase <- data.frame()
+
+for (mbase in mbase_values) {
+  new_data <- data.frame(
+    time = seq(0.5, 5, by = 0.25),
+    mdur = rep(mdur_fixed, length.out = length(seq(0.5, 5, by = 0.25))),
+    mbase = rep(mbase, length.out = length(seq(0.5, 5, by = 0.25))),
+    study = rep(max_study + 1, length.out = length(seq(0.5, 5, by = 0.25)))
+  )
+  
+  predictions <- posterior_epred(fit_new, newdata = new_data, re_formula = NA)
+  
+  pred_summary <- apply(predictions, 2, function(x) {
+    c(mean = mean(x), lower = quantile(x, 0.25), upper = quantile(x, 0.75))
+  })
+  
+  pred_summary_df <- as.data.frame(t(pred_summary))
+  colnames(pred_summary_df) <- c("mean", "lower", "upper")
+  
+  result <- cbind(new_data, pred_summary_df)
+  result$combination <- paste("mbase =", mbase)
+  
+  all_results_mbase <- rbind(all_results_mbase, result)
+}
+
+ggplot(all_results_mbase, aes(x = time, y = mean, color = combination)) +
+  geom_line(size = 1.5) +
+  geom_ribbon(aes(ymin = lower, ymax = upper, fill = combination), alpha = 0.05, show.legend = FALSE) +
+  geom_line(aes(y = lower), linetype = "dashed", size = 0.5) +
+  geom_line(aes(y = upper), linetype = "dashed", size = 0.5) +
+  labs(title = "Predicted Values with 50% Credible Intervals for Different mbase Values (mdur = 15)",
+       x = "Time",
+       y = "Predicted yi") +
+  theme_minimal() +
+  scale_color_discrete(name = "mbase Combination")
 ```
+
+#### Conclusion
+
+From these two plots, we first get mbase fixed and see what effect do mdur and time have on yi, and then get mdur fixed and see what effect do mbase and time have on yi.
+
+-   We can see that when time is lower than 3, the treatment effect (compared to the baseline) are getting more significant over the time, but the differences are lower after 3 months. We infer that 3 months is an ideal time period for a good treatment. We can still continue it after 3 months as it's not harmful, but it is not as effective as before.
+
+-   Mdur has a vague impact on the trend of the treatment effect, because we can see from the plot that confidence intervals are overlapping and there is no clear trend which direction these curves go.
+
+-   In contrast, mbase has a clearer impact on the treatment effect. Higher mbase values, which implies more severe disease, corresponds to stronger observed mean differences. This shows that DBS treatment has a stronger effect dealing with worse functioning patients with higher UPDRS scores.
+
+-   In conclusion, we believe DBS is an effective way to relieve Parkinson's disease. The effect of this treatment is the most significant after 3 months, and it tends to have stronger effects with lower functioning patients. This method is promising and worth a try.
 
 ### Week 6: Final Notebook
 
