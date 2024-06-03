@@ -1,7 +1,7 @@
 ---
 title: "Bayesian Workflow Diary"
-date: 2023-04-22
-author: Anlin Sun
+date: 2024-06-01
+author: Anonymous
 format:
   html:
     toc: true
@@ -11,8 +11,7 @@ format:
     mainfont: Calibri, serif
     page-layout: article
   pdf:  
-    geometry:
-    - left=1cm,top=1cm,bottom=1cm,right=1cm
+    geometry: "left=1cm, top=1cm, bottom=1cm, right=1cm"
     number-sections: true
     code-annotations: none
     pagestyle: plain
@@ -25,9 +24,7 @@ editor: source
 
 ```
 
-## Bayesian Workflow
-
-### Set up
+## Set up
 
 AI tools are used to give hints on plots and codes.
 
@@ -40,6 +37,7 @@ library(cmdstanr)
 library(dplyr)
 library(ggplot2)
 library(ggdist) # for stat_dotsinterval
+library(gridExtra)
 library(posterior)
 library(brms)
 library(rstan)
@@ -61,7 +59,7 @@ ggplot2::theme_set(theme_minimal(base_size = 14))
 bayesplot::bayesplot_theme_set(theme_minimal(base_size = 14))
 ```
 
-### Loading Data and Preprocessing
+## Loading Data and Preprocessing
 
 Use this section of the diary for loading your dataset of choice and performing any necessary preprocessing. This could include cleaning the data, transforming variables, or creating new variables. Remember that you should be able to re-run or modify this code if needed during the interactive presentations.
 
@@ -85,27 +83,15 @@ rownames(dat) <- NULL
 head(dat, 10)
 ```
 
-### Week 1: Exploratory Data Analysis and Choosing a Research Question
+## Week 1: Exploratory Data Analysis and Choosing a Research Question
 
-#### Goal
-
-After this week, you should have:
-
--   Setting up your project, for example, using the provided templates
--   Formulating a research question & finding a dataset
--   Visualising and getting familiar with characteristics of your data (e.g., range, data types)
--   Adding your first notes and visualisations to the workflow diary
--   Picking an initial model & documenting your reasoning and the strategies you used to choose it
--   Obtaining posterior samples using your initial model with default priors
--   Documenting what you observe and any issues you encounter in the workflow diary
-
-#### Research Question
+### Research Question
 
 -   Does the deep-brain stimulation has significant positive effects on patients with Parkinson's disease?
 -   If so, what is the trend of their UPDRS score over the time?
 -   Do mean disease duration and mean baseline UPDRS scores have effects on this trend? What effects?
 
-#### Data Visualization
+### Data Visualization
 
 ```{r}
 #| warning: false
@@ -123,7 +109,7 @@ ggplot(dat, aes(x = time, y = yi, color = factor(study), group = study)) +
 
 Intuitively, this treatment roughly has a positive effect over the time, but not too obvious from the visualization.
 
-#### Initial model
+### Initial model
 
 To be simple at the start, I picked the Bayesian linear regression model at the first attempt, because it's concise enough and considers all of the factors from the dataset. I can adjust my model based on the performance of this linear model.
 
@@ -131,7 +117,7 @@ To be simple at the start, I picked the Bayesian linear regression model at the 
 
 -   **Prior**: $$\beta_\_\sim\mathbf{N}(0,5),\quad\sigma_\_\sim\mathbf{C}(0,2)$$
 
-#### Model Definition and Fitting
+### Model Definition and Fitting
 
 ```{r}
 #| message: false
@@ -160,7 +146,7 @@ fit <- brm(
 summary(fit)
 ```
 
-#### Observations and Problems
+### Observations and Problems
 
 -   Rhat of all the parameters is 1.00, and it seems that the Markov chains converged well enough.
 
@@ -170,16 +156,9 @@ summary(fit)
 
 -   The linear Bayesian model and prior choices seem too casual, and I plan to discover some models which are more compatible with this problem.
 
-### Week 2: Prior Choice
+## Week 2: Prior Choice
 
-#### Goal
-
-After this week, you should have:
-
--   Proposed priors for each parameter in your model, with justification
--   Performed a prior predictive check to ensure that your priors are reasonable
-
-#### Proposed priors
+### Proposed priors
 
 -   A correct prior choice should not be influenced by our dataset, so I will choose the priors based on common senses and some materials online.
 
@@ -191,7 +170,7 @@ After this week, you should have:
 
 -   The prior of the error term : $\quad\sigma\sim\mathbf{Exp}(0.02)$
 
-#### New Priors in brms and Prior Predictive Check
+### New Priors in brms and Prior Predictive Check
 
 ```{r}
 #| message: false
@@ -232,22 +211,13 @@ par(mfrow=c(1,1))
 pp_check(fit, ndraws = 200)
 ```
 
-#### Discussion on Prior Predictive Check for Prior Choices
+### Discussion on Prior Predictive Check for Prior Choices
 
 From the plots, we can see that the prior predictions tend to overestimate $y$, and the predictions are more concentrated on smaller intervals. This check had the influence on the prior choice of intercept and sd term. Previously, intercept's prior distribution's mean value was zero, which makes $y_{rep}$ have a large deviation to the training data. I also adjusted the parameter of the exponential distribution to avoid inappropriately narrow distribution of prior predictive data.
 
-### Week 3: Model Fitting and Checking
+## Week 3: Model Fitting and Checking
 
-#### Goal
-
-After this week, you should have:
-
--   Fitted your model with chosen priors to your data
--   Performed diagnostic checks for quality/stability of fitting
--   Performed prior sensitivity assessment
--   Performed predictive performance assessment
-
-#### Parameter Estimates and Model Fit Check
+### Parameter Estimates and Model Fit Check
 
 ```{r}
 #| message: false
@@ -285,7 +255,7 @@ From the results of the model fitting, we have these conclusions:
 
 -   These conclusions make sense to some extents, because the posterior intervals are consistent with our assumptions from the prior.
 
-#### Posterior predictive checks
+### Posterior predictive checks
 
 ```{r}
 pp_check(fit, ndraws = 2000)
@@ -310,7 +280,7 @@ ppc_intervals(
 
 -   From the $50%$ interval plot, we can see that most of the data points are falling into the $50%$ intervals, but there are still some outlying points, and less points are falling into the inner intervals.
 
-#### Influence and sensitivity checks
+### Influence and sensitivity checks
 
 ```{r}
 loo_check <- loo(fit, cores = 2)
@@ -329,20 +299,13 @@ powerscale_plot_dens(fit, variable = c("b_time", "b_mdur", "b_mbase", "sigma"))
 
 -   An exception is that the posterior are very sensitive to the likelihood of $\sigma$, which might be a issue. The pareto k value of a much lower power scaling of likelihood is quite high, and it indicates some inaccuracy with it.
 
-### Week 4: Extending Models and Model Selection
+## Week 4: Extending Models and Model Selection
 
-#### Goal
+### Idea of Model Extension
 
-After this week, you should have:
+This extension is from the idea of introducing smooth function to all of the variables, allowing for more complex and non-linear structure of our model. We provided two types of this extension, one is from Gaussian family and another one is from Student family. We will conduct model evaluations and comparisons to select the best model we use.
 
--   Decided on whether a model expansion or selection approach is relevant for your research question, with justification
--   Proposed a second model (or an expansion to the first), building on the issues/diagnostics/concepts from previous weeks
-
-#### Idea of Model Extension
-
-This extension is from the idea of introducing smooth function to all of the variables, allowing for more complex and non-linear structure of our model. We provided two types of this extension, one is from Gaussian family and another one is from Student family. We will give model evaluation and comparisons to select the best model we use.
-
-#### Model Fitting
+### Model Fitting
 
 ```{r}
 #| message: false
@@ -390,7 +353,7 @@ fit_new_2 <- brm(
 
 ```
 
-#### Fitting Results
+### Fitting Results
 
 ```{r}
 summary(fit_new)
@@ -403,7 +366,7 @@ hist(post_samples$`b_Intercept`, main = "b_intercept", xlab = "b_intercept", bre
 hist(post_samples$`Intercept`, main = "intercept", xlab = "intercept", breaks = 30)
 hist(post_samples$`sigma`, main = "sigma", xlab = "sigma", breaks = 30)
 hist(post_samples$`sd_study__Intercept`, main = "sd_study__Intercept", xlab = "sd_study__Intercept", breaks = 30)
-par(mfrow = c(1, 1))
+par(mfrow = c(1,1))
 
 
 summary(fit_new_2)
@@ -416,10 +379,12 @@ hist(post_samples$`b_Intercept`, main = "b_intercept", xlab = "b_intercept", bre
 hist(post_samples$`Intercept`, main = "intercept", xlab = "intercept", breaks = 30)
 hist(post_samples$`sigma`, main = "sigma", xlab = "sigma", breaks = 30)
 hist(post_samples$`sd_study__Intercept`, main = "sd_study__Intercept", xlab = "sd_study__Intercept", breaks = 30)
-par(mfrow = c(1, 1))
+par(mfrow = c(1,1))
 ```
 
-#### Posterior Predictive Check
+From the diagnosis, parameters of both model are converging well, which means that our samples are representing the actual posterior distribution well.
+
+### Posterior Predictive Check
 
 ```{r}
 par(mfrow = c(2,2))
@@ -459,7 +424,9 @@ ppc_intervals(
 par(mfrow = c(1,1))
 ```
 
-#### Prior Sensitivity Check
+With new models, more data points are falling into the credible intervals, which implies a greater prediction ability.
+
+### Prior Sensitivity Check
 
 ```{r}
 powerscale_sensitivity(fit_new)
@@ -468,7 +435,9 @@ powerscale_plot_dens(fit_new, variable = c("bs_stime_1", "bs_smdur_1", "bs_smbas
 powerscale_plot_dens(fit_new_2, variable = c("bs_stime_1", "bs_smdur_1", "bs_smbase_1", "sigma"))
 ```
 
-#### Model Comparison
+Both of the new models behave well in prior sensitivity checks.
+
+### LOO Model Comparison and Selection
 
 ```{r}
 loo_check_new <- loo(fit_new, cores = 2)
@@ -492,26 +461,21 @@ loo_comparison_df <- loo_comparison_df[, c("model", "elpd_diff", "se_diff")]
 kable(loo_comparison_df, col.names = c("Model", "ELPD Diff", "SE Diff"), caption = "LOO Comparison Results")
 ```
 
-#### Model Selection
+From the LOO comparison result, we used the prediction method to select the best model we provided. This form shows that the Gaussian GAM model has a significant better prediction ability than the other two. Therefore, we chose this model as our final prediction model. However, these models provided still behave badly within the Pareto-k check, which means a high potential of overfitting.
 
-From the LOO comparison result, we used the prediction method to select the best model we provided. This form shows that the Gaussian GAM model has a significant better prediction ability than the other two. Therefore, we chose this model as our final prediction model.
+## Week 5: Interpreting and Presenting Model Results
 
-### Week 5: Interpreting and Presenting Model Results
-
-#### Goal
-
-After this week, you should have:
-
--   Prepared a concise summary of your results and how they answer your research question
--   Prepared a visualisation of your results that is suitable for presentation to a non-technical audience
-
-#### Introduction (Informal Case Study)
+### Introduction (Informal Case Study)
 
 (In this part, we assume that we are presenting our result informally to people who are curious about this treatment for Parkinson's disease. We will briefly show what our conclusion is with some brief and clear visualizations).
 
 With the experiment data from 46 studies examining the effects of deep-brain stimulation, we conduct an analysis about whether this treatment have effect and what effect it has on patients. What's more, we also researched on the effect of disease duration and mean baseline UPDRS scores on the effect of treatment over the time.
 
-#### Visualization and Interpretation
+The data we used is results from 46 studies examining the effects of deep-brain stimulation on motor skills of patients with Parkinson's disease. We used our model fitting on the data, and got our predictions as below.
+
+### Visualization and Interpretation
+
+These visualizations show how these factors are influencing the treatment effects from our prediction.
 
 ```{r}
 library(brms)
@@ -550,11 +514,11 @@ ggplot(all_results, aes(x = time, y = mean, color = combination)) +
   geom_ribbon(aes(ymin = lower, ymax = upper, fill = combination), alpha = 0.05, show.legend = FALSE) +
   geom_line(aes(y = lower), linetype = "dashed", size = 0.5) +
   geom_line(aes(y = upper), linetype = "dashed", size = 0.5) +
-  labs(title = "Predicted Values with 50% Credible Intervals for Different mdur Values (mbase=50)",
+  labs(title = "Predicted Treatment Effects for Different Disease Durations",
        x = "Time",
-       y = "Predicted yi") +
+       y = "Predicted Effects") +
   theme_minimal() +
-  scale_color_discrete(name = "mdur Combination")
+  scale_color_discrete(name = "Disease Duration")
 
 mdur_fixed <- 15
 mbase_values <- c(40, 50, 60)
@@ -588,30 +552,21 @@ ggplot(all_results_mbase, aes(x = time, y = mean, color = combination)) +
   geom_ribbon(aes(ymin = lower, ymax = upper, fill = combination), alpha = 0.05, show.legend = FALSE) +
   geom_line(aes(y = lower), linetype = "dashed", size = 0.5) +
   geom_line(aes(y = upper), linetype = "dashed", size = 0.5) +
-  labs(title = "Predicted Values with 50% Credible Intervals for Different mbase Values (mdur = 15)",
+  labs(title = "Predicted Treatment Effects for Different Disease Severity Scores",
        x = "Time",
-       y = "Predicted yi") +
+       y = "Predicted Effects") +
   theme_minimal() +
-  scale_color_discrete(name = "mbase Combination")
+  scale_color_discrete(name = "Disease Severity Score")
 ```
 
-#### Conclusion
+### Conclusion
 
 From these two plots, we first get mbase fixed and see what effect do mdur and time have on yi, and then get mdur fixed and see what effect do mbase and time have on yi.
 
 -   We can see that when time is lower than 3, the treatment effect (compared to the baseline) are getting more significant over the time, but the differences are lower after 3 months. We infer that 3 months is an ideal time period for a good treatment. We can still continue it after 3 months as it's not harmful, but it is not as effective as before.
 
--   Mdur has a vague impact on the trend of the treatment effect, because we can see from the plot that confidence intervals are overlapping and there is no clear trend which direction these curves go.
+-   The disease duration has a vague impact on the trend of the treatment effect, because we can see from the plot that confidence intervals are overlapping and there is no clear trend which direction these curves go.
 
--   In contrast, mbase has a clearer impact on the treatment effect. Higher mbase values, which implies more severe disease, corresponds to stronger observed mean differences. This shows that DBS treatment has a stronger effect dealing with worse functioning patients with higher UPDRS scores.
+-   In contrast, the severity of the disease has a clearer impact on the treatment effect. Higher UPDRS scores, which implies more severe disease, corresponds to stronger observed mean differences. This shows that DBS treatment has a stronger effect dealing with worse functioning patients with higher UPDRS scores.
 
 -   In conclusion, we believe DBS is an effective way to relieve Parkinson's disease. The effect of this treatment is the most significant after 3 months, and it tends to have stronger effects with lower functioning patients. This method is promising and worth a try.
-
-### Week 6: Final Notebook
-
-#### Goal
-
-After this week, you should have:
-
--   Prepared a separate notebook summarising your analysis and results in the form of a case study
-    -   Be sure to use the case studies provided in this course to guide you
